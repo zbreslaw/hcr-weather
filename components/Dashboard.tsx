@@ -1,0 +1,829 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import WeatherMap from "./WeatherMap";
+import TempDewChart from "./charts/TempDewChart";
+import PressureChart from "./charts/PressureChart";
+import WindChart from "./charts/WindChart";
+import WindDirectionChart from "./charts/WindDirectionChart";
+import HumidityChart from "./charts/HumidityChart";
+import SolarChart from "./charts/SolarChart";
+import UVChart from "./charts/UVChart";
+import RainChart from "./charts/RainChart";
+import type { WeatherObs } from "@/lib/data/types";
+
+function fmt(n: number | null | undefined, suffix = "") {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return `${Math.round(n * 10) / 10}${suffix}`;
+}
+
+function fmtTemp(n: number | null | undefined, unit?: string | null) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return `${Math.round(n)}°${unit ?? "F"}`;
+}
+
+function fmtInches(n: number | null | undefined) {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return `${(Math.round(n * 100) / 100).toFixed(2)} in`;
+}
+
+function fmtHighLow(min: number | null, max: number | null, suffix = "") {
+  if (min === null || max === null) return "—";
+  return `${Math.round(max * 10) / 10}${suffix} / ${Math.round(min * 10) / 10}${suffix}`;
+}
+
+function rangeFor(values: WeatherObs[], getter: (d: WeatherObs) => number | null | undefined) {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const entry of values) {
+    const value = getter(entry);
+    if (value === null || value === undefined || Number.isNaN(value)) continue;
+    if (value < min) min = value;
+    if (value > max) max = value;
+  }
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return { min: null, max: null };
+  return { min, max };
+}
+
+type SparklineProps = {
+  values: Array<number | null | undefined>;
+  width?: number;
+  height?: number;
+};
+
+function Sparkline({ values, width = 110, height = 36 }: SparklineProps) {
+  const points = values.filter((v) => v !== null && v !== undefined && !Number.isNaN(v)) as number[];
+  if (points.length < 2) return null;
+
+  let min = Math.min(...points);
+  let max = Math.max(...points);
+  if (min === max) {
+    min -= 1;
+    max += 1;
+  }
+
+  const step = width / (points.length - 1);
+  const d = points
+    .map((v, i) => {
+      const x = i * step;
+      const y = height - ((v - min) / (max - min)) * height;
+      return `${i === 0 ? "M" : "L"}${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  return (
+    <svg className="kpiSpark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} aria-hidden="true">
+      <path d={d} fill="none" stroke="currentColor" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
+function isoDurationToMs(duration: string) {
+  const match = duration.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
+  if (!match) return 0;
+  const days = Number(match[1] ?? 0);
+  const hours = Number(match[2] ?? 0);
+  const minutes = Number(match[3] ?? 0);
+  const seconds = Number(match[4] ?? 0);
+  return (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000;
+}
+
+function parseValidTime(validTime: string) {
+  const [startStr, durationStr] = validTime.split("/");
+  if (!startStr || !durationStr) return null;
+  const start = new Date(startStr);
+  const durationMs = isoDurationToMs(durationStr);
+  if (Number.isNaN(start.getTime()) || durationMs <= 0) return null;
+  const end = new Date(start.getTime() + durationMs);
+  return { start, end };
+}
+
+function precipValueToInches(value: number, unitCode: string) {
+  const unit = unitCode.toLowerCase();
+  if (unit.includes("mm")) return value / 25.4;
+  if (unit.includes("cm")) return value / 2.54;
+  if (unit.includes("in")) return value;
+  return value / 25.4;
+}
+
+function sumPrecipInches(values: any[], rangeStart: Date, rangeEnd: Date, unitCode: string) {
+  if (!values?.length) return null;
+  const startMs = rangeStart.getTime();
+  const endMs = rangeEnd.getTime();
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
+
+  let totalBase = 0;
+
+  for (const entry of values) {
+    const value = entry?.value;
+    if (value === null || value === undefined || Number.isNaN(value)) continue;
+    const range = parseValidTime(entry?.validTime ?? "");
+    if (!range) continue;
+    const entryStart = range.start.getTime();
+    const entryEnd = range.end.getTime();
+    if (entryEnd <= entryStart) continue;
+    const overlap = Math.max(0, Math.min(entryEnd, endMs) - Math.max(entryStart, startMs));
+    if (overlap <= 0) continue;
+    const portion = overlap / (entryEnd - entryStart);
+    totalBase += value * portion;
+  }
+
+  if (!Number.isFinite(totalBase)) return null;
+  return precipValueToInches(totalBase, unitCode);
+}
+
+function precipAmountIn(period: any) {
+  const amount = period?.quantitativePrecipitation ?? period?.precipitationAmount;
+  const value = amount?.value;
+  if (value === null || value === undefined || Number.isNaN(value)) return null;
+  const unitCode = String(amount?.unitCode ?? amount?.uom ?? "").toLowerCase();
+  if (unitCode.includes("mm")) return value / 25.4;
+  return value;
+}
+
+export default function Dashboard() {
+  const [latest, setLatest] = useState<WeatherObs | null>(null);
+  const [series, setSeries] = useState<WeatherObs[]>([]);
+  const [rainTotalsSeries, setRainTotalsSeries] = useState<WeatherObs[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [range, setRange] = useState("today");
+  const [forecast, setForecast] = useState<{ daily: any[]; hourly: any[]; grid?: any | null } | null>(null);
+  const [forecastError, setForecastError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"current" | "historical" | "forecasted">("current");
+  const [alerts, setAlerts] = useState<any[]>([]);
+  const [alertsError, setAlertsError] = useState<string | null>(null);
+
+  const { fromISO, toISO } = useMemo(() => {
+    const to = new Date();
+    const hour = 60 * 60 * 1000;
+    const day = 24 * hour;
+    let from = new Date(to.getTime() - day);
+
+    switch (range) {
+      case "1h":
+        from = new Date(to.getTime() - hour);
+        break;
+      case "12h":
+        from = new Date(to.getTime() - 12 * hour);
+        break;
+      case "24h":
+        from = new Date(to.getTime() - day);
+        break;
+      case "today":
+        from = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+        break;
+      case "3d":
+        from = new Date(to.getTime() - 3 * day);
+        break;
+      case "7d":
+        from = new Date(to.getTime() - 7 * day);
+        break;
+      case "30d":
+        from = new Date(to.getTime() - 30 * day);
+        break;
+      default:
+        from = new Date(to.getTime() - day);
+    }
+
+    return { fromISO: from.toISOString(), toISO: to.toISOString() };
+  }, [range]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setError(null);
+
+        const [latestRes, rangeRes] = await Promise.all([
+          fetch("/api/latest", { cache: "no-store" }),
+          fetch(`/api/range?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`, { cache: "no-store" })
+        ]);
+
+        if (!latestRes.ok) throw new Error(`latest error ${latestRes.status}`);
+        if (!rangeRes.ok) throw new Error(`range error ${rangeRes.status}`);
+
+        const latestJson = (await latestRes.json()) as WeatherObs;
+        const rangeJson = (await rangeRes.json()) as WeatherObs[];
+
+        if (!cancelled) {
+          setLatest(latestJson);
+          setSeries(rangeJson);
+        }
+      } catch (e: any) {
+        if (!cancelled) setError(e?.message ?? "Failed to load");
+      }
+    }
+
+    load();
+    const id = setInterval(load, 60_000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [fromISO, toISO]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadRainTotals() {
+      try {
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const res = await fetch(
+          `/api/range?from=${encodeURIComponent(startOfYear.toISOString())}&to=${encodeURIComponent(now.toISOString())}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`rain totals error ${res.status}`);
+        const json = (await res.json()) as WeatherObs[];
+        if (!cancelled) setRainTotalsSeries(json);
+      } catch (e) {
+        if (!cancelled) setRainTotalsSeries([]);
+      }
+    }
+
+    loadRainTotals();
+    const id = setInterval(loadRainTotals, 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAlerts() {
+      try {
+        setAlertsError(null);
+        const res = await fetch("/api/alerts", { cache: "no-store" });
+        if (!res.ok) throw new Error(`alerts error ${res.status}`);
+        const json = await res.json();
+        if (!cancelled) setAlerts(json?.alerts ?? []);
+      } catch (e: any) {
+        if (!cancelled) setAlertsError(e?.message ?? "Failed to load alerts");
+      }
+    }
+
+    loadAlerts();
+    const id = setInterval(loadAlerts, 15 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadForecast() {
+      try {
+        setForecastError(null);
+        const res = await fetch("/api/forecast", { cache: "no-store" });
+        if (!res.ok) throw new Error(`forecast error ${res.status}`);
+        const json = await res.json();
+        if (!cancelled) setForecast(json);
+      } catch (e: any) {
+        if (!cancelled) setForecastError(e?.message ?? "Failed to load forecast");
+      }
+    }
+
+    loadForecast();
+    const id = setInterval(loadForecast, 30 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  const dailyForecast = useMemo(() => {
+    const periods = forecast?.daily ?? [];
+    if (!periods.length) return [];
+    const gridQuant = forecast?.grid?.quantitativePrecipitation;
+    const gridValues = gridQuant?.values ?? [];
+    const gridUnit = String(gridQuant?.uom ?? gridQuant?.unitCode ?? "");
+
+    const summaries: Array<{
+      name: string | null;
+      dateLabel: string | null;
+      icon: string | null;
+      summary: string | null;
+      high: number | null;
+      low: number | null;
+      tempUnit: string | null;
+      rainChance: number | null;
+      precipIn: number | null;
+      wind: string | null;
+    }> = [];
+
+    for (let i = 0; i < periods.length; i += 1) {
+      const day = periods[i];
+      if (!day?.isDaytime) continue;
+      const night = periods[i + 1]?.isDaytime ? null : periods[i + 1];
+      const dayChance = day?.probabilityOfPrecipitation?.value;
+      const nightChance = night?.probabilityOfPrecipitation?.value;
+      const rainChance =
+        dayChance === null || dayChance === undefined
+          ? nightChance ?? null
+          : nightChance === null || nightChance === undefined
+            ? dayChance
+            : Math.max(dayChance, nightChance);
+      const dayPrecip = precipAmountIn(day);
+      const nightPrecip = precipAmountIn(night);
+      const rangeStart = new Date(day?.startTime ?? "");
+      const rangeEnd = new Date(night?.endTime ?? day?.endTime ?? "");
+      const gridPrecipIn =
+        gridValues.length && !Number.isNaN(rangeStart.getTime()) && !Number.isNaN(rangeEnd.getTime())
+          ? sumPrecipInches(gridValues, rangeStart, rangeEnd, gridUnit)
+          : null;
+      const precipIn =
+        gridPrecipIn ??
+        (dayPrecip === null && nightPrecip === null ? null : (dayPrecip ?? 0) + (nightPrecip ?? 0));
+      const date = day?.startTime ? new Date(day.startTime) : null;
+      const dateLabel = date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString([], { month: "numeric", day: "numeric" }) : null;
+
+      summaries.push({
+        name: day?.name ?? null,
+        dateLabel,
+        icon: day?.icon ?? null,
+        summary: day?.shortForecast ?? null,
+        high: day?.temperature ?? null,
+        low: night?.temperature ?? null,
+        tempUnit: day?.temperatureUnit ?? night?.temperatureUnit ?? null,
+        rainChance: rainChance ?? null,
+        precipIn,
+        wind: day?.windSpeed ?? night?.windSpeed ?? null
+      });
+
+      if (summaries.length >= 7) break;
+    }
+
+    if (summaries.length) return summaries;
+
+    return periods.slice(0, 7).map((p) => ({
+      name: p?.name ?? null,
+      dateLabel: p?.startTime
+        ? new Date(p.startTime).toLocaleDateString([], { month: "numeric", day: "numeric" })
+        : null,
+      icon: p?.icon ?? null,
+      summary: p?.shortForecast ?? null,
+      high: p?.temperature ?? null,
+      low: null,
+      tempUnit: p?.temperatureUnit ?? null,
+      rainChance: p?.probabilityOfPrecipitation?.value ?? null,
+      precipIn: precipAmountIn(p),
+      wind: p?.windSpeed ?? null
+    }));
+  }, [forecast]);
+
+  const hourlyForecast = useMemo(() => (forecast?.hourly ?? []).slice(0, 48), [forecast]);
+  const hourlyByDay = useMemo(() => {
+    const periods = forecast?.hourly ?? [];
+    if (!periods.length) return [];
+
+    const now = new Date();
+    const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startTomorrow = new Date(startToday.getTime() + 24 * 60 * 60 * 1000);
+    const startDayAfter = new Date(startToday.getTime() + 2 * 24 * 60 * 60 * 1000);
+    const startFourth = new Date(startToday.getTime() + 3 * 24 * 60 * 60 * 1000);
+
+    const buckets = [
+      { label: "Today", start: startToday, end: startTomorrow },
+      { label: "Tomorrow", start: startTomorrow, end: startDayAfter },
+      { label: startDayAfter.toLocaleDateString([], { weekday: "long" }), start: startDayAfter, end: startFourth }
+    ];
+
+    const groups = buckets.map((b) => ({
+      label: b.label,
+      hours: periods.filter((p) => {
+        const t = p?.startTime ? new Date(p.startTime) : null;
+        if (!t || Number.isNaN(t.getTime())) return false;
+        return t >= b.start && t < b.end;
+      })
+    }));
+
+    groups[0].hours = groups[0].hours.filter((p) => {
+      const t = p?.startTime ? new Date(p.startTime) : null;
+      if (!t || Number.isNaN(t.getTime())) return false;
+      return t >= now;
+    });
+
+    return groups;
+  }, [forecast]);
+  const todayKey = useMemo(() => new Date().toDateString(), []);
+  const todaySeries = useMemo(
+    () => series.filter((d) => new Date(d.time).toDateString() === todayKey),
+    [series, todayKey]
+  );
+  const todayRanges = useMemo(
+    () => ({
+      temp: rangeFor(todaySeries, (d) => d.tempf),
+      dew: rangeFor(todaySeries, (d) => d.dewpointf),
+      rain: rangeFor(todaySeries, (d) => d.dailyrainin),
+      pressure: rangeFor(todaySeries, (d) => d.baromrelin),
+      wind: rangeFor(todaySeries, (d) => d.windspeedmph),
+      humidity: rangeFor(todaySeries, (d) => d.humidity),
+      solar: rangeFor(todaySeries, (d) => d.solarradiation),
+      uv: rangeFor(todaySeries, (d) => d.uv)
+    }),
+    [todaySeries]
+  );
+  const todayLabel = useMemo(
+    () => new Date().toLocaleDateString([], { month: "numeric", day: "numeric" }),
+    []
+  );
+  const todayForecast = useMemo(() => {
+    if (!dailyForecast.length) return null;
+    return dailyForecast.find((p) => p?.dateLabel === todayLabel) ?? dailyForecast[0];
+  }, [dailyForecast, todayLabel]);
+
+  function fmtHour(iso: string) {
+    const d = new Date(iso);
+    return d.toLocaleTimeString([], { hour: "numeric" });
+  }
+
+  return (
+    <>
+      <div className="tabs">
+        <button
+          type="button"
+          className={`tabButton ${activeTab === "current" ? "tabButtonActive" : ""}`}
+          onClick={() => setActiveTab("current")}
+        >
+          Current
+        </button>
+        <button
+          type="button"
+          className={`tabButton ${activeTab === "forecasted" ? "tabButtonActive" : ""}`}
+          onClick={() => setActiveTab("forecasted")}
+        >
+          Forecasted
+        </button>
+        <button
+          type="button"
+          className={`tabButton ${activeTab === "historical" ? "tabButtonActive" : ""}`}
+          onClick={() => setActiveTab("historical")}
+        >
+          Historical
+        </button>
+      </div>
+
+      {activeTab === "current" && (
+        <div className="grid">
+          <div className="panel">
+            <div className="panelHeader">
+              <div>Station view</div>
+              <div className="muted">
+                {latest ? `Updated ${new Date(latest.time).toLocaleString()}` : "Loading…"}
+              </div>
+            </div>
+            <WeatherMap
+              latest={latest}
+              alerts={
+                <div className="alertsPanel">
+                  <div className="alertsHeader">
+                    <div>Weather Alerts</div>
+                    <div className="muted">{alertsError ? `Error: ${alertsError}` : " "}</div>
+                  </div>
+                  <div className="alertsList">
+                    {alerts.length ? (
+                      alerts.map((alert, idx) => (
+                        <div className="alertCard" key={`${alert?.id ?? "alert"}-${idx}`}>
+                          <div className="alertTitle">{alert?.event ?? "Alert"}</div>
+                          <div className="alertMeta">
+                            {alert?.severity ? `Severity: ${alert.severity}` : "Severity: —"}
+                            {alert?.effective ? ` • Starts ${new Date(alert.effective).toLocaleString()}` : ""}
+                            {alert?.ends ? ` • Ends ${new Date(alert.ends).toLocaleString()}` : ""}
+                          </div>
+                          {alert?.headline && <div className="alertBody">{alert.headline}</div>}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="muted">No active alerts.</div>
+                    )}
+                  </div>
+                </div>
+              }
+            />
+          </div>
+
+          <div className="rightStack">
+            <div className="panel">
+              <div className="panelHeader">
+                <div>Now</div>
+                <div className="muted">{error ? `Error: ${error}` : " "}</div>
+              </div>
+
+              <div className="panelBody">
+                <div className="kpis kpisStacked">
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Tempature</div>
+                        <div className="kpiValue">{fmt(latest?.tempf, "°F")}</div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.temp.min, todayRanges.temp.max, "°F")}
+                        </div>
+                        <div className="kpiMeta">
+                          Forecast H/L {fmtTemp(todayForecast?.high, todayForecast?.tempUnit)} /{" "}
+                          {fmtTemp(todayForecast?.low, todayForecast?.tempUnit)}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.tempf ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Dew Point</div>
+                        <div className="kpiValue">{fmt(latest?.dewpointf, "°F")}</div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.dew.min, todayRanges.dew.max, "°F")}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.dewpointf ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Daily Rain</div>
+                        <div className="kpiValue">{fmt(latest?.dailyrainin, " in")}</div>
+                        <div className="kpiMeta">Forecast {fmtInches(todayForecast?.precipIn ?? null)}</div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.dailyrainin ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Relative Pressure</div>
+                        <div className="kpiValue">{fmt(latest?.baromrelin, " inHg")}</div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.pressure.min, todayRanges.pressure.max, " inHg")}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.baromrelin ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Wind</div>
+                        <div className="kpiValue">
+                          {fmt(latest?.windspeedmph, " mph")}
+                          {latest?.windgustmph != null ? ` / G ${fmt(latest.windgustmph, " mph")}` : ""}
+                        </div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.wind.min, todayRanges.wind.max, " mph")}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.windspeedmph ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Humidity</div>
+                        <div className="kpiValue">{fmt(latest?.humidity, "%")}</div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.humidity.min, todayRanges.humidity.max, "%")}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.humidity ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Solar Radiation</div>
+                        <div className="kpiValue">{fmt(latest?.solarradiation, " W/m²")}</div>
+                        <div className="kpiMeta">
+                          Today H/L {fmtHighLow(todayRanges.solar.min, todayRanges.solar.max, " W/m²")}
+                        </div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.solarradiation ?? null)} />
+                    </div>
+                  </div>
+                  <div className="kpi">
+                    <div className="kpiRow">
+                      <div className="kpiMain">
+                        <div className="kpiLabel">Ultra-Violet Radiation Index</div>
+                        <div className="kpiValue">{fmt(latest?.uv)}</div>
+                        <div className="kpiMeta">Today H/L {fmtHighLow(todayRanges.uv.min, todayRanges.uv.max)}</div>
+                      </div>
+                      <Sparkline values={todaySeries.map((d) => d.uv ?? null)} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "forecasted" && (
+        <div className="tabContent">
+          <div className="panel">
+            <div className="panelHeader">
+              <div>Forecast</div>
+              <div className="muted">{forecastError ? `Error: ${forecastError}` : " "}</div>
+            </div>
+            <div className="panelBody">
+              <div className="forecastSection">
+                <div className="forecastTitle">Next 7 Days</div>
+                <div className="forecastDaily">
+                  {dailyForecast.length ? (
+                    dailyForecast.map((p, idx) => (
+                      <div className="forecastCard" key={`${p?.name ?? "day"}-${idx}`}>
+                        <div className="forecastName">
+                          {p?.name ?? "—"}
+                          {p?.dateLabel ? <span className="forecastDate"> {p.dateLabel}</span> : ""}
+                        </div>
+                        <div className="forecastSummary">{p?.summary ?? "—"}</div>
+                        <div className="forecastTemp">
+                          High {fmtTemp(p?.high, p?.tempUnit)} / Low {fmtTemp(p?.low, p?.tempUnit)}
+                        </div>
+                        <div className="forecastMeta">
+                          <div>Rain {p?.rainChance != null ? `${p.rainChance}%` : "—"}</div>
+                          <div>Precip {fmtInches(p?.precipIn)}</div>
+                          <div>Wind {p?.wind ?? "—"}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">Loading…</div>
+                  )}
+                </div>
+              </div>
+
+              <div className="forecastSection">
+                <div className="forecastTitle">Hourly Forecast</div>
+                <div className="forecastHourlyGrid">
+                  {hourlyByDay.some((g) => g.hours.length) ? (
+                    hourlyByDay.map((group) => (
+                      <div className="forecastDayColumn" key={group.label}>
+                        <div className="forecastDayHeader">{group.label}</div>
+                        <div className="forecastHourList">
+                          {group.hours.length ? (
+                            group.hours.map((p, idx) => (
+                              <div className="forecastHourRow" key={`${p?.startTime ?? "hour"}-${idx}`}>
+                                <div className="forecastHour">{p?.startTime ? fmtHour(p.startTime) : "—"}</div>
+                                <div className="forecastTemp">
+                                  {p?.temperature != null ? `${p.temperature}°${p.temperatureUnit ?? "F"}` : "—"}
+                                </div>
+                                <div className="forecastWind">{p?.windSpeed ?? "—"}</div>
+                                <div className="forecastPrecip">Precip {fmtInches(precipAmountIn(p))}</div>
+                                <div className="forecastSummary">{p?.shortForecast ?? "—"}</div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="muted">No hours</div>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="muted">Loading…</div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "historical" && (
+        <div className="tabContent">
+          <div className="panel">
+            <div className="panelHeader">
+              <div>Historical</div>
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <label className="muted" htmlFor="rangeSelect">
+                  Range
+                </label>
+                <select
+                  id="rangeSelect"
+                  value={range}
+                  onChange={(e) => setRange(e.target.value)}
+                  style={{
+                    background: "rgba(255, 255, 255, 0.04)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text)",
+                    borderRadius: 10,
+                    padding: "6px 8px",
+                    fontSize: 12
+                  }}
+                >
+                  <option value="today">Today</option>
+                  <option value="1h">Past hour</option>
+                  <option value="12h">Past 12 hours</option>
+                  <option value="24h">Past 24 hours</option>
+                  <option value="3d">Past 3 days</option>
+                  <option value="7d">Past week</option>
+                  <option value="30d">Past month</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="panelBody">
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Temp & Dew Point</div>
+                  <div className="muted">°F</div>
+                </div>
+                <div className="panelBody">
+                  <TempDewChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Daily Rain</div>
+                  <div className="muted">in</div>
+                </div>
+                <div className="panelBody">
+                  <RainChart data={series} totalsData={rainTotalsSeries} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Pressure</div>
+                  <div className="muted">inHg</div>
+                </div>
+                <div className="panelBody">
+                  <PressureChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Wind</div>
+                  <div className="muted">mph</div>
+                </div>
+                <div className="panelBody">
+                  <WindChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Wind Direction</div>
+                  <div className="muted">N / E / S / W</div>
+                </div>
+                <div className="panelBody">
+                  <WindDirectionChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Humidity</div>
+                  <div className="muted">%</div>
+                </div>
+                <div className="panelBody">
+                  <HumidityChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Solar Radiation</div>
+                  <div className="muted">W/m²</div>
+                </div>
+                <div className="panelBody">
+                  <SolarChart data={series} />
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>UV Index</div>
+                  <div className="muted">UV</div>
+                </div>
+                <div className="panelBody">
+                  <UVChart data={series} />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
