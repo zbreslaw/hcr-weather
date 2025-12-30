@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-const USER_AGENT = process.env.NEXT_PUBLIC_NWS_USER_AGENT;
+const USER_AGENT = process.env.NEXT_PUBLIC_NWS_USER_AGENT ?? "";
 
 async function fetchJson(url: string) {
   const res = await fetch(url, {

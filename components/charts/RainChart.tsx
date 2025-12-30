@@ -77,7 +77,7 @@ export default function RainChart({ data, totalsData }: { data: WeatherObs[]; to
             <XAxis dataKey="label" minTickGap={12} />
             <YAxis domain={[0, "auto"]} />
             <Tooltip cursor={false} />
-            <Bar dataKey="max" fill="rgba(255, 255, 255, 0.6)" activeBar={null} />
+            <Bar dataKey="max" fill="rgba(255, 255, 255, 0.6)" activeBar={undefined} />
           </BarChart>
         </ResponsiveContainer>
       </div>

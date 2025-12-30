@@ -6,7 +6,11 @@ import { useMapEvents } from "react-leaflet";
 import type { WeatherObs } from "@/lib/data/types";
 import Overlays from "./Overlays";
 
-const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), { ssr: false });
+import { divIcon, type LatLngExpression } from "leaflet";
+
+import type { MapContainerProps } from "react-leaflet";
+
+const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), { ssr: false }) as React.FC<MapContainerProps>;
 const TileLayer = dynamic(() => import("react-leaflet").then((m) => m.TileLayer), { ssr: false });
 const Polyline = dynamic(() => import("react-leaflet").then((m) => m.Polyline), { ssr: false });
 const CircleMarker = dynamic(() => import("react-leaflet").then((m) => m.CircleMarker), { ssr: false });
@@ -21,6 +25,14 @@ type ArrowShape = {
   head: [number, number][];
   mid: [number, number];
 };
+
+const hiddenMarkerIcon = divIcon({
+  className: "hiddenMarkerIcon",
+  html: "",
+  iconSize: [0, 0],
+  iconAnchor: [0, 0],
+  tooltipAnchor: [0, 0]
+});
 
 function buildPixelArrow(
   map: any,
@@ -108,9 +120,9 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph }: WindA
           <Polyline positions={windArrow.line} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.9 }} />
           <Polyline positions={windArrow.head} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.9 }} />
           {windMph != null && (
-            <Marker position={windArrow.mid} opacity={0}>
-              <Tooltip permanent direction="center" opacity={0.95}>
-                {`${windMph.toFixed(1)} mph`}
+            <Marker position={windArrow.mid} icon={hiddenMarkerIcon}>
+              <Tooltip>
+                <span style={{ opacity: 0.95 }}>{`${windMph.toFixed(1)} mph`}</span>
               </Tooltip>
             </Marker>
           )}
@@ -122,9 +134,9 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph }: WindA
           <Polyline positions={gustArrow.line} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.8, dashArray: "6,8" }} />
           <Polyline positions={gustArrow.head} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.8, dashArray: "6,8" }} />
           {gustMph != null && (
-            <Marker position={gustArrow.mid} opacity={0}>
-              <Tooltip permanent direction="center" opacity={0.95}>
-                {`Gust ${gustMph.toFixed(1)} mph`}
+            <Marker position={gustArrow.mid} icon={hiddenMarkerIcon}>
+              <Tooltip>
+                <span style={{ opacity: 0.95 }}>{`Gust ${gustMph.toFixed(1)} mph`}</span>
               </Tooltip>
             </Marker>
           )}
@@ -149,7 +161,7 @@ export default function WeatherMap({ latest, alerts }: Props) {
       <div className="mapWrap">
         <MapContainer
           className="map"
-          center={[stationLat, stationLon]}
+          center={[stationLat, stationLon] as LatLngExpression}
           zoom={17}
           minZoom={3}
           maxZoom={19}
@@ -162,7 +174,7 @@ export default function WeatherMap({ latest, alerts }: Props) {
 
         {/* Station dot (solid black) */}
         <CircleMarker
-          center={[stationLat, stationLon]}
+          center={[stationLat, stationLon] as LatLngExpression}
           radius={7}
           pathOptions={{
             color: "#000000",
