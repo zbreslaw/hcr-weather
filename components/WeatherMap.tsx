@@ -1,12 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useMapEvents } from "react-leaflet";
 import type { WeatherObs } from "@/lib/data/types";
 import Overlays from "./Overlays";
 
-import { divIcon, type LatLngExpression } from "leaflet";
+import type { DivIcon, LatLngExpression } from "leaflet";
 
 import type { MapContainerProps } from "react-leaflet";
 
@@ -26,13 +26,32 @@ type ArrowShape = {
   mid: [number, number];
 };
 
-const hiddenMarkerIcon = divIcon({
-  className: "hiddenMarkerIcon",
-  html: "",
-  iconSize: [0, 0],
-  iconAnchor: [0, 0],
-  tooltipAnchor: [0, 0]
-});
+function useHiddenMarkerIcon() {
+  const [icon, setIcon] = useState<DivIcon | null>(null);
+
+  useEffect(() => {
+    let active = true;
+
+    import("leaflet").then(({ divIcon }) => {
+      if (!active) return;
+      setIcon(
+        divIcon({
+          className: "hiddenMarkerIcon",
+          html: "",
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+          tooltipAnchor: [0, 0]
+        })
+      );
+    });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  return icon;
+}
 
 function buildPixelArrow(
   map: any,
@@ -88,9 +107,10 @@ type WindArrowsProps = {
   windDir: number | null;
   windMph: number | null;
   gustMph: number | null;
+  hiddenIcon: DivIcon | null;
 };
 
-function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph }: WindArrowsProps) {
+function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph, hiddenIcon }: WindArrowsProps) {
   const [, setRev] = useState(0);
   const map = useMapEvents({
     zoomend: () => setRev((v: number) => v + 1),
@@ -119,8 +139,8 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph }: WindA
         <>
           <Polyline positions={windArrow.line} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.9 }} />
           <Polyline positions={windArrow.head} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.9 }} />
-          {windMph != null && (
-            <Marker position={windArrow.mid} icon={hiddenMarkerIcon}>
+          {windMph != null && hiddenIcon && (
+            <Marker position={windArrow.mid} icon={hiddenIcon}>
               <Tooltip>
                 <span style={{ opacity: 0.95 }}>{`${windMph.toFixed(1)} mph`}</span>
               </Tooltip>
@@ -133,8 +153,8 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph }: WindA
         <>
           <Polyline positions={gustArrow.line} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.8, dashArray: "6,8" }} />
           <Polyline positions={gustArrow.head} pathOptions={{ weight: arrowStrokeWeight, opacity: 0.8, dashArray: "6,8" }} />
-          {gustMph != null && (
-            <Marker position={gustArrow.mid} icon={hiddenMarkerIcon}>
+          {gustMph != null && hiddenIcon && (
+            <Marker position={gustArrow.mid} icon={hiddenIcon}>
               <Tooltip>
                 <span style={{ opacity: 0.95 }}>{`Gust ${gustMph.toFixed(1)} mph`}</span>
               </Tooltip>
@@ -155,6 +175,7 @@ export default function WeatherMap({ latest, alerts }: Props) {
   const windDir = latest?.winddir ?? null; // degrees FROM
   const windMph = latest?.windspeedmph ?? null;
   const gustMph = latest?.windgustmph ?? null;
+  const hiddenIcon = useHiddenMarkerIcon();
 
   return (
     <div className="mapBlock">
@@ -196,7 +217,14 @@ export default function WeatherMap({ latest, alerts }: Props) {
           </Popup>
         </CircleMarker>
 
-        <WindArrows stationLat={stationLat} stationLon={stationLon} windDir={windDir} windMph={windMph} gustMph={gustMph} />
+        <WindArrows
+          stationLat={stationLat}
+          stationLon={stationLon}
+          windDir={windDir}
+          windMph={windMph}
+          gustMph={gustMph}
+          hiddenIcon={hiddenIcon}
+        />
         </MapContainer>
 
         <div className="northMarker" aria-label="North">

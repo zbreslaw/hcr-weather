@@ -5,7 +5,7 @@ A public Next.js weather dashboard with:
 - Wind + sun/moon overlay (suncalc)
 - 24h charts (recharts)
 - API routes: /api/latest and /api/range
-- Data provider abstraction: mock now, Postgres later
+- Data provider abstraction: Postgres, with mock option
 
 ## Run
 
@@ -17,7 +17,7 @@ npm install
 npm run dev
 ```
 
-## Postgres schema (later)
+## Postgres schema
 
 ```sql
 create table if not exists observations (
