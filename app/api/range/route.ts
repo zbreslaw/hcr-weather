@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getProvider } from "@/lib/data/provider";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
@@ -22,7 +24,7 @@ export async function GET(req: Request) {
 
   return NextResponse.json(data, {
     headers: {
-      "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300"
+      "Cache-Control": "no-store, max-age=0"
     }
   });
 }

@@ -32,6 +32,41 @@ function fmtHighLow(min: number | null, max: number | null, suffix = "") {
   return `${Math.round(max * 10) / 10}${suffix} / ${Math.round(min * 10) / 10}${suffix}`;
 }
 
+function getRangeWindow(range: string) {
+  const to = new Date();
+  const hour = 60 * 60 * 1000;
+  const day = 24 * hour;
+  let from = new Date(to.getTime() - day);
+
+  switch (range) {
+    case "1h":
+      from = new Date(to.getTime() - hour);
+      break;
+    case "12h":
+      from = new Date(to.getTime() - 12 * hour);
+      break;
+    case "24h":
+      from = new Date(to.getTime() - day);
+      break;
+    case "today":
+      from = new Date(to.getFullYear(), to.getMonth(), to.getDate());
+      break;
+    case "3d":
+      from = new Date(to.getTime() - 3 * day);
+      break;
+    case "7d":
+      from = new Date(to.getTime() - 7 * day);
+      break;
+    case "30d":
+      from = new Date(to.getTime() - 30 * day);
+      break;
+    default:
+      from = new Date(to.getTime() - day);
+  }
+
+  return { from, to };
+}
+
 function rangeFor(values: WeatherObs[], getter: (d: WeatherObs) => number | null | undefined) {
   let min = Infinity;
   let max = -Infinity;
@@ -153,47 +188,15 @@ export default function Dashboard() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [alertsError, setAlertsError] = useState<string | null>(null);
 
-  const { fromISO, toISO } = useMemo(() => {
-    const to = new Date();
-    const hour = 60 * 60 * 1000;
-    const day = 24 * hour;
-    let from = new Date(to.getTime() - day);
-
-    switch (range) {
-      case "1h":
-        from = new Date(to.getTime() - hour);
-        break;
-      case "12h":
-        from = new Date(to.getTime() - 12 * hour);
-        break;
-      case "24h":
-        from = new Date(to.getTime() - day);
-        break;
-      case "today":
-        from = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-        break;
-      case "3d":
-        from = new Date(to.getTime() - 3 * day);
-        break;
-      case "7d":
-        from = new Date(to.getTime() - 7 * day);
-        break;
-      case "30d":
-        from = new Date(to.getTime() - 30 * day);
-        break;
-      default:
-        from = new Date(to.getTime() - day);
-    }
-
-    return { fromISO: from.toISOString(), toISO: to.toISOString() };
-  }, [range]);
-
   useEffect(() => {
     let cancelled = false;
 
     async function load() {
       try {
         setError(null);
+        const { from, to } = getRangeWindow(range);
+        const fromISO = from.toISOString();
+        const toISO = to.toISOString();
 
         const [latestRes, rangeRes] = await Promise.all([
           fetch("/api/latest", { cache: "no-store" }),
@@ -221,7 +224,7 @@ export default function Dashboard() {
       cancelled = true;
       clearInterval(id);
     };
-  }, [fromISO, toISO]);
+  }, [range]);
 
   useEffect(() => {
     let cancelled = false;
