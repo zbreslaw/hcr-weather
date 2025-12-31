@@ -145,6 +145,19 @@ body {
 .kpiRow { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .kpiMain { display: grid; gap: 2px; }
 .kpiSpark { color: rgba(255, 255, 255, 0.55); }
+.kpiEmbed {
+  display: grid;
+  gap: 8px;
+}
+.kpiEmbedFrame {
+  width: 230px;
+  max-width: 100%;
+  height: 230px;
+  border: none;
+  border-radius: 25px;
+  display: block;
+  margin: 0 auto;
+}
 
 .alertsPanel {
   border-top: 1px solid var(--border);

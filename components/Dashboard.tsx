@@ -674,6 +674,17 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.uv ?? null)} />
                     </div>
                   </div>
+                  <div className="kpi kpiEmbed">
+                    <div className="kpiMain">
+                      <div className="kpiLabel">Air Quality</div>
+                    </div>
+                    <iframe
+                      title="Air Quality Dial"
+                      src="https://widget.airnow.gov/aq-dial-widget/?city=Creswell&state=OR&country=USA&transparent=true"
+                      className="kpiEmbedFrame"
+                      loading="lazy"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
