@@ -51,7 +51,7 @@ export default function TempDewChart({ data }: { data: WeatherObs[] }) {
           {fmtStat(tempStats?.avg ?? null)}°F
         </div>
         <div>
-          Dew Low {fmtStat(dewStats?.min ?? null)}°F • High {fmtStat(dewStats?.max ?? null)}°F • Average{" "}
+          Dew Point Low {fmtStat(dewStats?.min ?? null)}°F • High {fmtStat(dewStats?.max ?? null)}°F • Average{" "}
           {fmtStat(dewStats?.avg ?? null)}°F
         </div>
       </div>

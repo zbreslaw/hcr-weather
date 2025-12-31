@@ -418,6 +418,53 @@ export default function Dashboard() {
     () => series.filter((d) => new Date(d.time).toDateString() === todayKey),
     [series, todayKey]
   );
+  const rainyStreak = useMemo(() => {
+    if (!rainTotalsSeries.length) return null;
+    const maxByDay = new Map<string, number>();
+    for (const entry of rainTotalsSeries) {
+      if (entry.dailyrainin == null || Number.isNaN(entry.dailyrainin)) continue;
+      const dayKey = new Date(entry.time).toDateString();
+      const prev = maxByDay.get(dayKey) ?? 0;
+      if (entry.dailyrainin > prev) maxByDay.set(dayKey, entry.dailyrainin);
+    }
+
+    const ref = latest?.time ? new Date(latest.time) : new Date();
+    let streak = 0;
+
+    for (let i = 0; i < 366; i += 1) {
+      const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - i);
+      const key = day.toDateString();
+      const max = maxByDay.get(key) ?? 0;
+      if (max >= 0.01) {
+        streak += 1;
+      } else {
+        break;
+      }
+    }
+
+    return streak;
+  }, [rainTotalsSeries, latest?.time]);
+  const todaySolarTotal = useMemo(() => {
+    const points = todaySeries
+      .map((d) => ({ time: new Date(d.time).getTime(), value: d.solarradiation }))
+      .filter((d) => Number.isFinite(d.time))
+      .sort((a, b) => a.time - b.time);
+
+    if (points.length < 2) return null;
+
+    let total = 0;
+    for (let i = 1; i < points.length; i += 1) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      if (prev.value == null || curr.value == null) continue;
+      const dtHours = (curr.time - prev.time) / (1000 * 60 * 60);
+      if (dtHours <= 0) continue;
+      const avg = (prev.value + curr.value) / 2;
+      total += avg * dtHours;
+    }
+
+    return Number.isFinite(total) ? total : null;
+  }, [todaySeries]);
   const todayRanges = useMemo(
     () => ({
       temp: rangeFor(todaySeries, (d) => d.tempf),
@@ -534,10 +581,10 @@ export default function Dashboard() {
                         <div className="kpiLabel">Tempature</div>
                         <div className="kpiValue">{fmt(latest?.tempf, "°F")}</div>
                         <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.temp.min, todayRanges.temp.max, "°F")}
+                          Today {fmtHighLow(todayRanges.temp.min, todayRanges.temp.max, "°F")}
                         </div>
                         <div className="kpiMeta">
-                          Forecast H/L {fmtTemp(todayForecast?.high, todayForecast?.tempUnit)} /{" "}
+                          Forecast {fmtTemp(todayForecast?.high, todayForecast?.tempUnit)} /{" "}
                           {fmtTemp(todayForecast?.low, todayForecast?.tempUnit)}
                         </div>
                       </div>
@@ -550,7 +597,7 @@ export default function Dashboard() {
                         <div className="kpiLabel">Dew Point</div>
                         <div className="kpiValue">{fmt(latest?.dewpointf, "°F")}</div>
                         <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.dew.min, todayRanges.dew.max, "°F")}
+                          Today {fmtHighLow(todayRanges.dew.min, todayRanges.dew.max, "°F")}
                         </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.dewpointf ?? null)} />
@@ -559,9 +606,12 @@ export default function Dashboard() {
                   <div className="kpi">
                     <div className="kpiRow">
                       <div className="kpiMain">
-                        <div className="kpiLabel">Daily Rain</div>
+                        <div className="kpiLabel">Today&apos;s Rain</div>
                         <div className="kpiValue">{fmt(latest?.dailyrainin, " in")}</div>
                         <div className="kpiMeta">Forecast {fmtInches(todayForecast?.precipIn ?? null)}</div>
+                        <div className="kpiMeta">
+                          Rainy Day Streak: {rainyStreak == null ? "—" : `${rainyStreak} ${rainyStreak === 1 ? "day" : "days"}`}
+                        </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.dailyrainin ?? null)} />
                     </div>
@@ -572,7 +622,7 @@ export default function Dashboard() {
                         <div className="kpiLabel">Relative Pressure</div>
                         <div className="kpiValue">{fmt(latest?.baromrelin, " inHg")}</div>
                         <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.pressure.min, todayRanges.pressure.max, " inHg")}
+                          Today {fmtHighLow(todayRanges.pressure.min, todayRanges.pressure.max, " inHg")}
                         </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.baromrelin ?? null)} />
@@ -586,9 +636,6 @@ export default function Dashboard() {
                           {fmt(latest?.windspeedmph, " mph")}
                           {latest?.windgustmph != null ? ` / G ${fmt(latest.windgustmph, " mph")}` : ""}
                         </div>
-                        <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.wind.min, todayRanges.wind.max, " mph")}
-                        </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.windspeedmph ?? null)} />
                     </div>
@@ -599,7 +646,7 @@ export default function Dashboard() {
                         <div className="kpiLabel">Humidity</div>
                         <div className="kpiValue">{fmt(latest?.humidity, "%")}</div>
                         <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.humidity.min, todayRanges.humidity.max, "%")}
+                          Today {fmtHighLow(todayRanges.humidity.min, todayRanges.humidity.max, "%")}
                         </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.humidity ?? null)} />
@@ -611,7 +658,7 @@ export default function Dashboard() {
                         <div className="kpiLabel">Solar Radiation</div>
                         <div className="kpiValue">{fmt(latest?.solarradiation, " W/m²")}</div>
                         <div className="kpiMeta">
-                          Today H/L {fmtHighLow(todayRanges.solar.min, todayRanges.solar.max, " W/m²")}
+                          Today&apos;s Total {fmt(todaySolarTotal, " Wh/m²")}
                         </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.solarradiation ?? null)} />
@@ -622,7 +669,7 @@ export default function Dashboard() {
                       <div className="kpiMain">
                         <div className="kpiLabel">Ultra-Violet Radiation Index</div>
                         <div className="kpiValue">{fmt(latest?.uv)}</div>
-                        <div className="kpiMeta">Today H/L {fmtHighLow(todayRanges.uv.min, todayRanges.uv.max)}</div>
+                        <div className="kpiMeta">Today&apos;s Max {todayRanges.uv.max}</div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.uv ?? null)} />
                     </div>

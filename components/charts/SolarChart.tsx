@@ -17,12 +17,35 @@ function stats(values: Array<number | null | undefined>) {
   return { min, max, avg };
 }
 
+function totalWhPerM2(data: WeatherObs[]) {
+  const points = data
+    .map((d) => ({ time: new Date(d.time).getTime(), value: d.solarradiation }))
+    .filter((d) => Number.isFinite(d.time))
+    .sort((a, b) => a.time - b.time);
+
+  if (points.length < 2) return null;
+
+  let total = 0;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const curr = points[i];
+    if (prev.value == null || curr.value == null) continue;
+    const dtHours = (curr.time - prev.time) / (1000 * 60 * 60);
+    if (dtHours <= 0) continue;
+    const avg = (prev.value + curr.value) / 2;
+    total += avg * dtHours;
+  }
+
+  return Number.isFinite(total) ? total : null;
+}
+
 function fmtStat(value: number | null) {
   return value == null ? "—" : value.toFixed(1);
 }
 
 export default function SolarChart({ data }: { data: WeatherObs[] }) {
   const solarStats = stats(data.map((d) => d.solarradiation));
+  const solarTotal = totalWhPerM2(data);
   return (
     <div>
       <div style={{ height: 220 }}>
@@ -37,8 +60,8 @@ export default function SolarChart({ data }: { data: WeatherObs[] }) {
       </div>
       <div className="chartStats">
         <div>
-          Solar Low {fmtStat(solarStats?.min ?? null)} W/m² • High {fmtStat(solarStats?.max ?? null)} W/m² • Average{" "}
-          {fmtStat(solarStats?.avg ?? null)} W/m²
+          Solar High {fmtStat(solarStats?.max ?? null)} W/m² • Average {fmtStat(solarStats?.avg ?? null)} W/m² • Total{" "}
+          {fmtStat(solarTotal)} Wh/m²
         </div>
       </div>
     </div>

@@ -37,8 +37,7 @@ export default function UVChart({ data }: { data: WeatherObs[] }) {
       </div>
       <div className="chartStats">
         <div>
-          UV Low {fmtStat(uvStats?.min ?? null)} UV • High {fmtStat(uvStats?.max ?? null)} UV • Average{" "}
-          {fmtStat(uvStats?.avg ?? null)} UV
+          UV High {fmtStat(uvStats?.max ?? null)} UV
         </div>
       </div>
     </div>
