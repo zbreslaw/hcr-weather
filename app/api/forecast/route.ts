@@ -26,6 +26,7 @@ export async function GET() {
     const forecastUrl = points?.properties?.forecast;
     const hourlyUrl = points?.properties?.forecastHourly;
     const gridUrl = points?.properties?.forecastGridData;
+    const timeZone = points?.properties?.timeZone ?? null;
 
     if (!forecastUrl || !hourlyUrl || !gridUrl) {
       return NextResponse.json({ error: "Missing forecast endpoints" }, { status: 502 });
@@ -41,7 +42,8 @@ export async function GET() {
       {
         daily: daily?.properties?.periods ?? [],
         hourly: hourly?.properties?.periods ?? [],
-        grid: grid?.properties ?? null
+        grid: grid?.properties ?? null,
+        timeZone
       },
       {
         headers: {

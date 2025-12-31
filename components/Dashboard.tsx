@@ -176,6 +176,41 @@ function precipAmountIn(period: any) {
   return value;
 }
 
+function dateKeyInTimeZone(date: Date, timeZone: string | null) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    ...(timeZone ? { timeZone } : {})
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+function windChillF(tempF: number | null | undefined, windMph: number | null | undefined) {
+  if (tempF == null || windMph == null || Number.isNaN(tempF) || Number.isNaN(windMph)) return null;
+  if (tempF > 50 || windMph <= 3) return null;
+  return 35.74 + 0.6215 * tempF - 35.75 * Math.pow(windMph, 0.16) + 0.4275 * tempF * Math.pow(windMph, 0.16);
+}
+
+function heatIndexF(tempF: number | null | undefined, humidity: number | null | undefined) {
+  if (tempF == null || humidity == null || Number.isNaN(tempF) || Number.isNaN(humidity)) return null;
+  if (tempF < 80 || humidity < 40) return null;
+  const t = tempF;
+  const rh = humidity;
+  return (
+    -42.379 +
+    2.04901523 * t +
+    10.14333127 * rh -
+    0.22475541 * t * rh -
+    0.00683783 * t * t -
+    0.05481717 * rh * rh +
+    0.00122874 * t * t * rh +
+    0.00085282 * t * rh * rh -
+    0.00000199 * t * t * rh * rh
+  );
+}
+
 export default function Dashboard() {
   const [latest, setLatest] = useState<WeatherObs | null>(null);
   const [series, setSeries] = useState<WeatherObs[]>([]);
@@ -299,16 +334,22 @@ export default function Dashboard() {
     };
   }, []);
 
+  const stationTimeZone = useMemo(() => forecast?.timeZone ?? null, [forecast?.timeZone]);
+  const todayKey = useMemo(() => dateKeyInTimeZone(new Date(), stationTimeZone), [stationTimeZone]);
   const dailyForecast = useMemo(() => {
     const periods = forecast?.daily ?? [];
     if (!periods.length) return [];
     const gridQuant = forecast?.grid?.quantitativePrecipitation;
     const gridValues = gridQuant?.values ?? [];
     const gridUnit = String(gridQuant?.uom ?? gridQuant?.unitCode ?? "");
+    const labelOptions = stationTimeZone
+      ? ({ month: "numeric", day: "numeric", timeZone: stationTimeZone } as const)
+      : ({ month: "numeric", day: "numeric" } as const);
 
     const summaries: Array<{
       name: string | null;
       dateLabel: string | null;
+      dateKey: string | null;
       icon: string | null;
       summary: string | null;
       high: number | null;
@@ -343,11 +384,14 @@ export default function Dashboard() {
         gridPrecipIn ??
         (dayPrecip === null && nightPrecip === null ? null : (dayPrecip ?? 0) + (nightPrecip ?? 0));
       const date = day?.startTime ? new Date(day.startTime) : null;
-      const dateLabel = date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString([], { month: "numeric", day: "numeric" }) : null;
+      const dateLabel =
+        date && !Number.isNaN(date.getTime()) ? date.toLocaleDateString([], labelOptions) : null;
+      const dateKey = date && !Number.isNaN(date.getTime()) ? dateKeyInTimeZone(date, stationTimeZone) : null;
 
       summaries.push({
         name: day?.name ?? null,
         dateLabel,
+        dateKey,
         icon: day?.icon ?? null,
         summary: day?.shortForecast ?? null,
         high: day?.temperature ?? null,
@@ -361,13 +405,17 @@ export default function Dashboard() {
       if (summaries.length >= 7) break;
     }
 
-    if (summaries.length) return summaries;
+    const buildSeven = (list: Array<{ dateKey: string | null } & Record<string, any>>) =>
+      list.filter((p) => (p?.dateKey ?? "") >= todayKey).slice(0, 7);
 
-    return periods.slice(0, 7).map((p) => ({
+    if (summaries.length) {
+      return buildSeven(summaries);
+    }
+
+    const fallback = periods.map((p) => ({
       name: p?.name ?? null,
-      dateLabel: p?.startTime
-        ? new Date(p.startTime).toLocaleDateString([], { month: "numeric", day: "numeric" })
-        : null,
+      dateLabel: p?.startTime ? new Date(p.startTime).toLocaleDateString([], labelOptions) : null,
+      dateKey: p?.startTime ? dateKeyInTimeZone(new Date(p.startTime), stationTimeZone) : null,
       icon: p?.icon ?? null,
       summary: p?.shortForecast ?? null,
       high: p?.temperature ?? null,
@@ -377,7 +425,8 @@ export default function Dashboard() {
       precipIn: precipAmountIn(p),
       wind: p?.windSpeed ?? null
     }));
-  }, [forecast]);
+    return buildSeven(fallback);
+  }, [forecast, stationTimeZone, todayKey]);
 
   const hourlyForecast = useMemo(() => (forecast?.hourly ?? []).slice(0, 48), [forecast]);
   const hourlyByDay = useMemo(() => {
@@ -413,10 +462,10 @@ export default function Dashboard() {
 
     return groups;
   }, [forecast]);
-  const todayKey = useMemo(() => new Date().toDateString(), []);
+  const todayKeyLocal = useMemo(() => new Date().toDateString(), []);
   const todaySeries = useMemo(
-    () => series.filter((d) => new Date(d.time).toDateString() === todayKey),
-    [series, todayKey]
+    () => series.filter((d) => new Date(d.time).toDateString() === todayKeyLocal),
+    [series, todayKeyLocal]
   );
   const rainyStreak = useMemo(() => {
     if (!rainTotalsSeries.length) return null;
@@ -478,14 +527,20 @@ export default function Dashboard() {
     }),
     [todaySeries]
   );
-  const todayLabel = useMemo(
-    () => new Date().toLocaleDateString([], { month: "numeric", day: "numeric" }),
-    []
-  );
   const todayForecast = useMemo(() => {
     if (!dailyForecast.length) return null;
-    return dailyForecast.find((p) => p?.dateLabel === todayLabel) ?? dailyForecast[0];
-  }, [dailyForecast, todayLabel]);
+    const exact = dailyForecast.find((p) => p?.dateKey === todayKey);
+    if (exact) return exact;
+    const next = dailyForecast.find((p) => (p?.dateKey ?? "") >= todayKey);
+    return next ?? dailyForecast[0];
+  }, [dailyForecast, todayKey]);
+  const feelsLike = useMemo(() => {
+    const windChill = windChillF(latest?.tempf ?? null, latest?.windspeedmph ?? null);
+    const heatIndex = heatIndexF(latest?.tempf ?? null, latest?.humidity ?? null);
+    if (heatIndex != null) return { value: heatIndex, label: "Heat Index" };
+    if (windChill != null) return { value: windChill, label: "Wind Chill" };
+    return null;
+  }, [latest?.tempf, latest?.windspeedmph, latest?.humidity]);
 
   function fmtHour(iso: string) {
     const d = new Date(iso);
@@ -587,6 +642,11 @@ export default function Dashboard() {
                           Forecast {fmtTemp(todayForecast?.high, todayForecast?.tempUnit)} /{" "}
                           {fmtTemp(todayForecast?.low, todayForecast?.tempUnit)}
                         </div>
+                        {feelsLike ? (
+                          <div className="kpiMeta">
+                            Feels Like {fmtTemp(feelsLike.value, "F")} ({feelsLike.label})
+                          </div>
+                        ) : null}
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.tempf ?? null)} />
                     </div>
@@ -701,7 +761,7 @@ export default function Dashboard() {
             </div>
             <div className="panelBody">
               <div className="forecastSection">
-                <div className="forecastTitle">Next 7 Days</div>
+                <div className="forecastTitle">Next {dailyForecast.length} Days</div>
                 <div className="forecastDaily">
                   {dailyForecast.length ? (
                     dailyForecast.map((p, idx) => (

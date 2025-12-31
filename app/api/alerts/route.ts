@@ -17,12 +17,25 @@ async function fetchJson(url: string) {
   return res.json();
 }
 
-export async function GET() {
-  const lat = process.env.NEXT_PUBLIC_STATION_LAT ?? "44.05";
-  const lon = process.env.NEXT_PUBLIC_STATION_LON ?? "-123.09";
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const pointParam = searchParams.get("point");
+  const latParam = searchParams.get("lat");
+  const lonParam = searchParams.get("lon");
+  const lat = (latParam ?? process.env.NEXT_PUBLIC_STATION_LAT ?? "44.05").trim();
+  const lon = (lonParam ?? process.env.NEXT_PUBLIC_STATION_LON ?? "-123.09").trim();
+  const point = pointParam?.trim() || `${lat},${lon}`;
 
   try {
-    const url = `https://api.weather.gov/alerts/active?point=${lat},${lon}`;
+    if (!USER_AGENT.trim()) {
+      throw new Error("Missing NEXT_PUBLIC_NWS_USER_AGENT");
+    }
+
+    if (!point.includes(",")) {
+      throw new Error("Invalid point; expected lat,lon");
+    }
+
+    const url = `https://api.weather.gov/alerts/active?point=${encodeURIComponent(point)}`;
     const data = await fetchJson(url);
     const alerts =
       data?.features?.map((f: any) => ({
