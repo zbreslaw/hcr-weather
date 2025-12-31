@@ -217,7 +217,12 @@ export default function Dashboard() {
   const [rainTotalsSeries, setRainTotalsSeries] = useState<WeatherObs[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState("today");
-  const [forecast, setForecast] = useState<{ daily: any[]; hourly: any[]; grid?: any | null } | null>(null);
+  const [forecast, setForecast] = useState<{
+    daily: any[];
+    hourly: any[];
+    grid?: any | null;
+    timeZone?: string | null;
+  } | null>(null);
   const [forecastError, setForecastError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"current" | "historical" | "forecasted">("current");
   const [alerts, setAlerts] = useState<any[]>([]);
