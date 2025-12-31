@@ -18,7 +18,7 @@ const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), { ssr:
 const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), { ssr: false });
 const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), { ssr: false });
 
-type Props = { latest: WeatherObs | null; alerts?: ReactNode };
+type Props = { latest: WeatherObs | null; series: WeatherObs[]; alerts?: ReactNode };
 
 type ArrowShape = {
   line: [number, number][];
@@ -124,13 +124,13 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph, hiddenI
   const windArrow = useMemo(() => {
     if (windDir == null || windMph == null) return null;
     const headPx = Math.max(6, Math.round(25 * 0.35));
-    return buildPixelArrow(map, stationLat, stationLon, windDir, 25, headPx);
+    return buildPixelArrow(map, stationLat, stationLon, windDir, 50, headPx);
   }, [map, stationLat, stationLon, windDir, windMph]);
 
   const gustArrow = useMemo(() => {
     if (windDir == null || gustMph == null || !showGust) return null;
     const headPx = Math.max(7, Math.round(35 * 0.35));
-    return buildPixelArrow(map, stationLat, stationLon, windDir, 35, headPx);
+    return buildPixelArrow(map, stationLat, stationLon, windDir, 70, headPx);
   }, [map, stationLat, stationLon, windDir, gustMph, showGust]);
 
   return (
@@ -166,7 +166,7 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph, hiddenI
   );
 }
 
-export default function WeatherMap({ latest, alerts }: Props) {
+export default function WeatherMap({ latest, series, alerts }: Props) {
   // Set these in .env.local (NEXT_PUBLIC_*)
   const stationLat = Number(process.env.NEXT_PUBLIC_STATION_LAT ?? "44.05");
   const stationLon = Number(process.env.NEXT_PUBLIC_STATION_LON ?? "-123.09");
@@ -196,7 +196,7 @@ export default function WeatherMap({ latest, alerts }: Props) {
         {/* Station dot (solid black) */}
         <CircleMarker
           center={[stationLat, stationLon] as LatLngExpression}
-          radius={7}
+          radius={4}
           pathOptions={{
             color: "#000000",
             fillColor: "#000000",
@@ -233,7 +233,7 @@ export default function WeatherMap({ latest, alerts }: Props) {
       </div>
 
       <div className="underMapOverlays">
-        <Overlays latest={latest} stationLat={stationLat} stationLon={stationLon} />
+        <Overlays latest={latest} series={series} stationLat={stationLat} stationLon={stationLon} />
         {alerts}
       </div>
     </div>

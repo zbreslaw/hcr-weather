@@ -277,6 +277,28 @@ body {
   padding: 10px 12px;
 }
 
+.moonCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.moonCardContent {
+  flex: 1;
+}
+
+.moonPhaseWrap {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+}
+
+.moonCard .moonPhase {
+  margin-top: 0;
+}
+
 .row {
   display: flex;
   gap: 10px;
@@ -286,6 +308,10 @@ body {
 .badge {
   font-size: 12px;
   color: var(--muted);
+}
+
+.windHeader {
+  margin-bottom: 4px;
 }
 
 .chartStats {

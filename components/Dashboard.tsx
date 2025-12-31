@@ -477,11 +477,20 @@ export default function Dashboard() {
             <div className="panelHeader">
               <div>Station view</div>
               <div className="muted">
-                {latest ? `Updated ${new Date(latest.time).toLocaleString()}` : "Loading…"}
+                {latest
+                  ? `Updated ${new Date(latest.time).toLocaleString([], {
+                      year: "numeric",
+                      month: "numeric",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit"
+                    })}`
+                  : "Loading…"}
               </div>
             </div>
             <WeatherMap
               latest={latest}
+              series={series}
               alerts={
                 <div className="alertsPanel">
                   <div className="alertsHeader">
