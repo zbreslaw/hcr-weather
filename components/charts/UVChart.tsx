@@ -2,27 +2,12 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
-
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function stats(values: Array<number | null | undefined>) {
-  const nums = values.filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
-  if (!nums.length) return null;
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const avg = nums.reduce((sum, v) => sum + v, 0) / nums.length;
-  return { min, max, avg };
-}
-
-function fmtStat(value: number | null) {
-  return value == null ? "—" : value.toFixed(1);
-}
+import { fmtStat, fmtTime } from "@/lib/utils/format";
+import { stats } from "@/lib/utils/math";
 
 export default function UVChart({ data }: { data: WeatherObs[] }) {
   const uvStats = stats(data.map((d) => d.uv));
+  const statDecimals = 1;
   return (
     <div>
       <div style={{ height: 220 }}>
@@ -37,7 +22,7 @@ export default function UVChart({ data }: { data: WeatherObs[] }) {
       </div>
       <div className="chartStats">
         <div>
-          UV High {fmtStat(uvStats?.max ?? null)} UV
+          UV High {fmtStat(uvStats?.max ?? null, statDecimals)} UV
         </div>
       </div>
     </div>

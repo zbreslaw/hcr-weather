@@ -2,19 +2,7 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
-
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function fmtDir(value: number) {
-  if (value === 0 || value === 360) return "N";
-  if (value === 90) return "W";
-  if (value === 180) return "S";
-  if (value === 270) return "E";
-  return "";
-}
+import { fmtDir, fmtTime } from "@/lib/utils/format";
 
 export default function WindDirectionChart({ data }: { data: WeatherObs[] }) {
   return (

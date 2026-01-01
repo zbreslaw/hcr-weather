@@ -2,6 +2,7 @@
 
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
+import { fmtInches } from "@/lib/utils/format";
 
 function dayLabel(date: Date) {
   return date.toLocaleDateString([], { month: "numeric", day: "numeric" });
@@ -9,10 +10,6 @@ function dayLabel(date: Date) {
 
 function dateKey(date: Date) {
   return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-}
-
-function fmtTotal(value: number) {
-  return `${value.toFixed(2)} in`;
 }
 
 export default function RainChart({ data, totalsData }: { data: WeatherObs[]; totalsData?: WeatherObs[] }) {
@@ -83,8 +80,10 @@ export default function RainChart({ data, totalsData }: { data: WeatherObs[]; to
       </div>
       <div className="chartStats">
         <div>
-          Past 7 days {fmtTotal(totals.last7)} • Past 30 days {fmtTotal(totals.last30)} • Past 90 days{" "}
-          {fmtTotal(totals.last90)} • YTD {fmtTotal(totals.ytd)}
+          Past 7 days {fmtInches(Number.isFinite(totals.last7) ? totals.last7 : 0)} • Past 30 days{" "}
+          {fmtInches(Number.isFinite(totals.last30) ? totals.last30 : 0)} • Past 90 days{" "}
+          {fmtInches(Number.isFinite(totals.last90) ? totals.last90 : 0)} • YTD{" "}
+          {fmtInches(Number.isFinite(totals.ytd) ? totals.ytd : 0)}
         </div>
       </div>
     </div>

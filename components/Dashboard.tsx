@@ -11,67 +11,9 @@ import SolarChart from "./charts/SolarChart";
 import UVChart from "./charts/UVChart";
 import RainChart from "./charts/RainChart";
 import type { WeatherObs } from "@/lib/data/types";
-
-function fmt(n: number | null | undefined, suffix = "") {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return `${Math.round(n * 10) / 10}${suffix}`;
-}
-
-function fmtTemp(n: number | null | undefined, unit?: string | null) {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return `${Math.round(n)}°${unit ?? "F"}`;
-}
-
-function fmtInches(n: number | null | undefined) {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return `${(Math.round(n * 100) / 100).toFixed(2)} in`;
-}
-
-function fmtHighLow(min: number | null, max: number | null, suffix = "") {
-  if (min === null || max === null) return "—";
-  return `${Math.round(max * 10) / 10}${suffix} / ${Math.round(min * 10) / 10}${suffix}`;
-}
-
-function getRangeWindow(range: string) {
-  const to = new Date();
-  const hour = 60 * 60 * 1000;
-  const day = 24 * hour;
-  let from = new Date(to.getTime() - day);
-
-  switch (range) {
-    case "1h":
-      from = new Date(to.getTime() - hour);
-      break;
-    case "12h":
-      from = new Date(to.getTime() - 12 * hour);
-      break;
-    case "24h":
-      from = new Date(to.getTime() - day);
-      break;
-    case "today":
-      from = new Date(to.getFullYear(), to.getMonth(), to.getDate());
-      break;
-    case "3d":
-      from = new Date(to.getTime() - 3 * day);
-      break;
-    case "7d":
-      from = new Date(to.getTime() - 7 * day);
-      break;
-    case "30d":
-      from = new Date(to.getTime() - 30 * day);
-      break;
-    case "ytd":
-      from = new Date(to.getFullYear(), 0, 1);
-      break;
-    case "all":
-      from = new Date(1970, 0, 1);
-      break;
-    default:
-      from = new Date(to.getTime() - day);
-  }
-
-  return { from, to };
-}
+import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
+import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
+import { heatIndexF, precipAmountIn, sumPrecipInches, windChillF } from "@/lib/utils/weather";
 
 function rangeFor(values: WeatherObs[], getter: (d: WeatherObs) => number | null | undefined) {
   let min = Infinity;
@@ -119,103 +61,6 @@ function Sparkline({ values, width = 110, height = 36 }: SparklineProps) {
   );
 }
 
-function isoDurationToMs(duration: string) {
-  const match = duration.match(/^P(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/);
-  if (!match) return 0;
-  const days = Number(match[1] ?? 0);
-  const hours = Number(match[2] ?? 0);
-  const minutes = Number(match[3] ?? 0);
-  const seconds = Number(match[4] ?? 0);
-  return (((days * 24 + hours) * 60 + minutes) * 60 + seconds) * 1000;
-}
-
-function parseValidTime(validTime: string) {
-  const [startStr, durationStr] = validTime.split("/");
-  if (!startStr || !durationStr) return null;
-  const start = new Date(startStr);
-  const durationMs = isoDurationToMs(durationStr);
-  if (Number.isNaN(start.getTime()) || durationMs <= 0) return null;
-  const end = new Date(start.getTime() + durationMs);
-  return { start, end };
-}
-
-function precipValueToInches(value: number, unitCode: string) {
-  const unit = unitCode.toLowerCase();
-  if (unit.includes("mm")) return value / 25.4;
-  if (unit.includes("cm")) return value / 2.54;
-  if (unit.includes("in")) return value;
-  return value / 25.4;
-}
-
-function sumPrecipInches(values: any[], rangeStart: Date, rangeEnd: Date, unitCode: string) {
-  if (!values?.length) return null;
-  const startMs = rangeStart.getTime();
-  const endMs = rangeEnd.getTime();
-  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs <= startMs) return null;
-
-  let totalBase = 0;
-
-  for (const entry of values) {
-    const value = entry?.value;
-    if (value === null || value === undefined || Number.isNaN(value)) continue;
-    const range = parseValidTime(entry?.validTime ?? "");
-    if (!range) continue;
-    const entryStart = range.start.getTime();
-    const entryEnd = range.end.getTime();
-    if (entryEnd <= entryStart) continue;
-    const overlap = Math.max(0, Math.min(entryEnd, endMs) - Math.max(entryStart, startMs));
-    if (overlap <= 0) continue;
-    const portion = overlap / (entryEnd - entryStart);
-    totalBase += value * portion;
-  }
-
-  if (!Number.isFinite(totalBase)) return null;
-  return precipValueToInches(totalBase, unitCode);
-}
-
-function precipAmountIn(period: any) {
-  const amount = period?.quantitativePrecipitation ?? period?.precipitationAmount;
-  const value = amount?.value;
-  if (value === null || value === undefined || Number.isNaN(value)) return null;
-  const unitCode = String(amount?.unitCode ?? amount?.uom ?? "").toLowerCase();
-  if (unitCode.includes("mm")) return value / 25.4;
-  return value;
-}
-
-function dateKeyInTimeZone(date: Date, timeZone: string | null) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    ...(timeZone ? { timeZone } : {})
-  }).formatToParts(date);
-  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
-  return `${get("year")}-${get("month")}-${get("day")}`;
-}
-
-function windChillF(tempF: number | null | undefined, windMph: number | null | undefined) {
-  if (tempF == null || windMph == null || Number.isNaN(tempF) || Number.isNaN(windMph)) return null;
-  if (tempF > 50 || windMph <= 3) return null;
-  return 35.74 + 0.6215 * tempF - 35.75 * Math.pow(windMph, 0.16) + 0.4275 * tempF * Math.pow(windMph, 0.16);
-}
-
-function heatIndexF(tempF: number | null | undefined, humidity: number | null | undefined) {
-  if (tempF == null || humidity == null || Number.isNaN(tempF) || Number.isNaN(humidity)) return null;
-  if (tempF < 80 || humidity < 40) return null;
-  const t = tempF;
-  const rh = humidity;
-  return (
-    -42.379 +
-    2.04901523 * t +
-    10.14333127 * rh -
-    0.22475541 * t * rh -
-    0.00683783 * t * t -
-    0.05481717 * rh * rh +
-    0.00122874 * t * t * rh +
-    0.00085282 * t * rh * rh -
-    0.00000199 * t * t * rh * rh
-  );
-}
 
 export default function Dashboard() {
   const [latest, setLatest] = useState<WeatherObs | null>(null);
@@ -558,11 +403,6 @@ export default function Dashboard() {
     if (windChill != null) return { value: windChill, label: "Wind Chill" };
     return null;
   }, [latest?.tempf, latest?.windspeedmph, latest?.humidity]);
-
-  function fmtHour(iso: string) {
-    const d = new Date(iso);
-    return d.toLocaleTimeString([], { hour: "numeric" });
-  }
 
   return (
     <>

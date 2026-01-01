@@ -2,27 +2,12 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
-
-function fmtTime(iso: string) {
-  const d = new Date(iso);
-  return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
-function stats(values: Array<number | null | undefined>) {
-  const nums = values.filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
-  if (!nums.length) return null;
-  const min = Math.min(...nums);
-  const max = Math.max(...nums);
-  const avg = nums.reduce((sum, v) => sum + v, 0) / nums.length;
-  return { min, max, avg };
-}
-
-function fmtStat(value: number | null) {
-  return value == null ? "—" : value.toFixed(2);
-}
+import { fmtStat, fmtTime } from "@/lib/utils/format";
+import { stats } from "@/lib/utils/math";
 
 export default function PressureChart({ data }: { data: WeatherObs[] }) {
   const pressureStats = stats(data.map((d) => d.baromrelin));
+  const statDecimals = 2;
   return (
     <div>
       <div style={{ height: 220 }}>
@@ -37,8 +22,9 @@ export default function PressureChart({ data }: { data: WeatherObs[] }) {
       </div>
       <div className="chartStats">
         <div>
-          Pressure Low {fmtStat(pressureStats?.min ?? null)} inHg • High {fmtStat(pressureStats?.max ?? null)} inHg •
-          Average {fmtStat(pressureStats?.avg ?? null)} inHg
+          Pressure Low {fmtStat(pressureStats?.min ?? null, statDecimals)} inHg • High{" "}
+          {fmtStat(pressureStats?.max ?? null, statDecimals)} inHg • Average{" "}
+          {fmtStat(pressureStats?.avg ?? null, statDecimals)} inHg
         </div>
       </div>
     </div>

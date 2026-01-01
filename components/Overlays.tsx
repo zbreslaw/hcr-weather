@@ -1,17 +1,8 @@
 "use client";
 import SunCalc from "suncalc";
 import type { WeatherObs } from "@/lib/data/types";
-
-function degToCompass(deg: number) {
-  const dirs = ["N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE", "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"];
-  const ix = Math.round(((deg % 360) / 22.5)) % 16;
-  return dirs[ix];
-}
-
-function fmt(n: number | null | undefined, suffix = "") {
-  if (n === null || n === undefined || Number.isNaN(n)) return "—";
-  return `${Math.round(n * 10) / 10}${suffix}`;
-}
+import { fmt } from "@/lib/utils/format";
+import { degToCompass, maxGustForDay, meanWindSpeed, windChillF, windRunMilesForDay, windVariabilityDeg } from "@/lib/utils/weather";
 
 type Props = {
   latest: WeatherObs | null;
@@ -20,101 +11,6 @@ type Props = {
   stationLon: number;
   timeZone?: string | null;
 };
-
-function windVariabilityDeg(series: WeatherObs[], refTime: Date, windowMs: number) {
-  const cutoff = refTime.getTime() - windowMs;
-  let sumSin = 0;
-  let sumCos = 0;
-  let count = 0;
-
-  for (const entry of series) {
-    const dir = entry.winddir;
-    if (dir === null || dir === undefined || Number.isNaN(dir)) continue;
-    const t = new Date(entry.time).getTime();
-    if (!Number.isFinite(t) || t < cutoff || t > refTime.getTime()) continue;
-    const rad = (dir * Math.PI) / 180;
-    sumSin += Math.sin(rad);
-    sumCos += Math.cos(rad);
-    count += 1;
-  }
-
-  if (count < 2) return null;
-  const rRaw = Math.hypot(sumSin, sumCos) / count;
-  if (!Number.isFinite(rRaw)) return null;
-  const r = Math.min(1, Math.max(0, rRaw));
-  if (r >= 1) return 0;
-  if (r <= 0) return 180;
-  const stdRad = Math.sqrt(-2 * Math.log(r));
-  const stdDeg = (stdRad * 180) / Math.PI;
-  return Math.min(180, stdDeg);
-}
-
-function maxGustForDay(series: WeatherObs[], refTime: Date) {
-  const start = new Date(refTime.getFullYear(), refTime.getMonth(), refTime.getDate());
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
-  let max = -Infinity;
-
-  for (const entry of series) {
-    const gust = entry.windgustmph;
-    if (gust === null || gust === undefined || Number.isNaN(gust)) continue;
-    const t = new Date(entry.time).getTime();
-    if (!Number.isFinite(t) || t < start.getTime() || t >= end.getTime()) continue;
-    if (gust > max) max = gust;
-  }
-
-  return Number.isFinite(max) ? max : null;
-}
-
-function meanWindSpeed(series: WeatherObs[], refTime: Date, windowMs: number) {
-  const cutoff = refTime.getTime() - windowMs;
-  let total = 0;
-  let count = 0;
-
-  for (const entry of series) {
-    const speed = entry.windspeedmph;
-    if (speed === null || speed === undefined || Number.isNaN(speed)) continue;
-    const t = new Date(entry.time).getTime();
-    if (!Number.isFinite(t) || t < cutoff || t > refTime.getTime()) continue;
-    total += speed;
-    count += 1;
-  }
-
-  return count ? total / count : null;
-}
-
-function windRunMilesForDay(series: WeatherObs[], refTime: Date) {
-  const start = new Date(refTime.getFullYear(), refTime.getMonth(), refTime.getDate()).getTime();
-  const end = start + 24 * 60 * 60 * 1000;
-  const points = series
-    .map((entry) => ({
-      time: new Date(entry.time).getTime(),
-      speed: entry.windspeedmph
-    }))
-    .filter((entry) => Number.isFinite(entry.time) && entry.time >= start && entry.time < end && entry.speed != null)
-    .sort((a, b) => a.time - b.time);
-
-  if (points.length < 2) return null;
-
-  let miles = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    const prev = points[i - 1];
-    const curr = points[i];
-    const dtHours = (curr.time - prev.time) / (1000 * 60 * 60);
-    if (dtHours <= 0) continue;
-    const prevSpeed = prev.speed ?? 0;
-    const currSpeed = curr.speed ?? 0;
-    const avgSpeed = (prevSpeed + currSpeed) / 2;
-    miles += avgSpeed * dtHours;
-  }
-
-  return Number.isFinite(miles) ? miles : null;
-}
-
-function windChillF(tempF: number | null | undefined, windMph: number | null | undefined) {
-  if (tempF == null || windMph == null || Number.isNaN(tempF) || Number.isNaN(windMph)) return null;
-  if (tempF > 50 || windMph <= 3) return null;
-  return 35.74 + 0.6215 * tempF - 35.75 * Math.pow(windMph, 0.16) + 0.4275 * tempF * Math.pow(windMph, 0.16);
-}
 
 export default function Overlays({ latest, series, stationLat, stationLon, timeZone = null }: Props) {
   const now = new Date();
