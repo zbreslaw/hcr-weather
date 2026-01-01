@@ -60,6 +60,12 @@ function getRangeWindow(range: string) {
     case "30d":
       from = new Date(to.getTime() - 30 * day);
       break;
+    case "ytd":
+      from = new Date(to.getFullYear(), 0, 1);
+      break;
+    case "all":
+      from = new Date(1970, 0, 1);
+      break;
     default:
       from = new Date(to.getTime() - day);
   }
@@ -217,6 +223,7 @@ export default function Dashboard() {
   const [rainTotalsSeries, setRainTotalsSeries] = useState<WeatherObs[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState("today");
+  const [rangeLoading, setRangeLoading] = useState(false);
   const [forecast, setForecast] = useState<{
     daily: any[];
     hourly: any[];
@@ -233,6 +240,7 @@ export default function Dashboard() {
 
     async function load() {
       try {
+        setRangeLoading(true);
         setError(null);
         const { from, to } = getRangeWindow(range);
         const fromISO = from.toISOString();
@@ -255,6 +263,8 @@ export default function Dashboard() {
         }
       } catch (e: any) {
         if (!cancelled) setError(e?.message ?? "Failed to load");
+      } finally {
+        if (!cancelled) setRangeLoading(false);
       }
     }
 
@@ -273,8 +283,10 @@ export default function Dashboard() {
       try {
         const now = new Date();
         const startOfYear = new Date(now.getFullYear(), 0, 1);
+        const ninetyDaysAgo = new Date(now.getTime() - 89 * 24 * 60 * 60 * 1000);
+        const start = startOfYear < ninetyDaysAgo ? startOfYear : ninetyDaysAgo;
         const res = await fetch(
-          `/api/range?from=${encodeURIComponent(startOfYear.toISOString())}&to=${encodeURIComponent(now.toISOString())}`,
+          `/api/range?from=${encodeURIComponent(start.toISOString())}&to=${encodeURIComponent(now.toISOString())}`,
           { cache: "no-store" }
         );
         if (!res.ok) throw new Error(`rain totals error ${res.status}`);
@@ -858,7 +870,10 @@ export default function Dashboard() {
                   <option value="3d">Past 3 days</option>
                   <option value="7d">Past week</option>
                   <option value="30d">Past month</option>
+                  <option value="ytd">Year to date</option>
+                  <option value="all">All time</option>
                 </select>
+                {rangeLoading ? <span className="muted">Loading…</span> : null}
               </div>
             </div>
 
