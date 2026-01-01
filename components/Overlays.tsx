@@ -18,6 +18,7 @@ type Props = {
   series: WeatherObs[];
   stationLat: number;
   stationLon: number;
+  timeZone?: string | null;
 };
 
 function windVariabilityDeg(series: WeatherObs[], refTime: Date, windowMs: number) {
@@ -115,7 +116,7 @@ function windChillF(tempF: number | null | undefined, windMph: number | null | u
   return 35.74 + 0.6215 * tempF - 35.75 * Math.pow(windMph, 0.16) + 0.4275 * tempF * Math.pow(windMph, 0.16);
 }
 
-export default function Overlays({ latest, series, stationLat, stationLon }: Props) {
+export default function Overlays({ latest, series, stationLat, stationLon, timeZone = null }: Props) {
   const now = new Date();
   const refTime = latest?.time ? new Date(latest.time) : now;
   const sun = SunCalc.getPosition(now, stationLat, stationLon);
@@ -129,6 +130,18 @@ export default function Overlays({ latest, series, stationLat, stationLon }: Pro
 
   const moonAz = (moon.azimuth * 180) / Math.PI + 180;
   const moonAlt = (moon.altitude * 180) / Math.PI;
+  const moonDistanceKm = Number.isFinite(moon.distance) ? moon.distance : null;
+  const moonDistanceMiles = moonDistanceKm == null ? null : moonDistanceKm * 0.621371;
+  const moonDistanceLabel =
+    moonDistanceMiles == null ? "—" : `${Math.round(moonDistanceMiles).toLocaleString()} mi`;
+  const moonOrbitLabel =
+    moonDistanceKm == null
+      ? null
+      : moonDistanceKm <= 365000
+        ? "Perigee"
+        : moonDistanceKm >= 405000
+          ? "Apogee"
+          : null;
   const moonIllumPct = Math.round(moonIllum.fraction * 100);
   const moonPhaseName = (phase: number) => {
     if (phase < 0.03 || phase > 0.97) return "New Moon";
@@ -142,21 +155,25 @@ export default function Overlays({ latest, series, stationLat, stationLon }: Pro
   };
   const moonPhaseLabel = moonPhaseName(moonIllum.phase);
   const nextFullMoon = (() => {
-    const start = new Date(now);
+    const startMs = now.getTime();
+    const endMs = startMs + 30 * 24 * 60 * 60 * 1000;
+    const stepMs = 10 * 60 * 1000;
     let best: Date | null = null;
     let bestDelta = Infinity;
-    for (let i = 1; i <= 30 * 24; i += 1) {
-      const t = new Date(start.getTime() + i * 60 * 60 * 1000);
-      const phase = SunCalc.getMoonIllumination(t).phase;
+    for (let t = startMs; t <= endMs; t += stepMs) {
+      const phase = SunCalc.getMoonIllumination(new Date(t)).phase;
       const delta = Math.abs(phase - 0.5);
       if (delta < bestDelta) {
         bestDelta = delta;
-        best = t;
+        best = new Date(t);
       }
-      if (bestDelta < 0.002) break;
+      if (bestDelta < 0.0005) break;
     }
     return best;
   })();
+  const fullMoonLabel = nextFullMoon
+    ? nextFullMoon.toLocaleDateString([], timeZone ? { month: "short", day: "numeric", timeZone } : { month: "short", day: "numeric" })
+    : "—";
 
   const windDir = latest?.winddir ?? null;
   const windVar = windVariabilityDeg(series, refTime, 15 * 60 * 1000);
@@ -218,9 +235,13 @@ export default function Overlays({ latest, series, stationLat, stationLon }: Pro
           <div className="badge">Azimuth: {moonAz.toFixed(0)}°</div>
           <div className="badge">Altitude: {moonAlt.toFixed(0)}°</div>
           <div className="badge">Illumination: {moonIllumPct}%</div>
+          <div className="badge">
+            Distance: {moonDistanceLabel}
+            {moonOrbitLabel ? ` (${moonOrbitLabel})` : ""}
+          </div>
           <div className="badge">Phase: {moonPhaseLabel}</div>
           <div className="badge">
-            Next Full Moon: {nextFullMoon ? nextFullMoon.toLocaleDateString([], { month: "short", day: "numeric" }) : "—"}
+            Next Full Moon: {fullMoonLabel}
           </div>
         </div>
         <div className="moonPhaseWrap" aria-hidden="true">

@@ -598,6 +598,7 @@ export default function Dashboard() {
             <WeatherMap
               latest={latest}
               series={series}
+              timeZone={stationTimeZone}
               alerts={
                 <div className="alertsPanel">
                   <div className="alertsHeader">

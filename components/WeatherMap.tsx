@@ -18,7 +18,7 @@ const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), { ssr:
 const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), { ssr: false });
 const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), { ssr: false });
 
-type Props = { latest: WeatherObs | null; series: WeatherObs[]; alerts?: ReactNode };
+type Props = { latest: WeatherObs | null; series: WeatherObs[]; alerts?: ReactNode; timeZone?: string | null };
 
 type ArrowShape = {
   line: [number, number][];
@@ -166,7 +166,7 @@ function WindArrows({ stationLat, stationLon, windDir, windMph, gustMph, hiddenI
   );
 }
 
-export default function WeatherMap({ latest, series, alerts }: Props) {
+export default function WeatherMap({ latest, series, alerts, timeZone = null }: Props) {
   // Set these in .env.local (NEXT_PUBLIC_*)
   const stationLat = Number(process.env.NEXT_PUBLIC_STATION_LAT ?? "44.05");
   const stationLon = Number(process.env.NEXT_PUBLIC_STATION_LON ?? "-123.09");
@@ -233,7 +233,7 @@ export default function WeatherMap({ latest, series, alerts }: Props) {
       </div>
 
       <div className="underMapOverlays">
-        <Overlays latest={latest} series={series} stationLat={stationLat} stationLon={stationLon} />
+        <Overlays latest={latest} series={series} stationLat={stationLat} stationLon={stationLon} timeZone={timeZone} />
         {alerts}
       </div>
     </div>
