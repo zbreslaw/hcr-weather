@@ -672,7 +672,7 @@ export default function Dashboard() {
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Today&apos;s Rain</div>
-                        <div className="kpiValue">{fmt(latest?.dailyrainin, " in")}</div>
+                        <div className="kpiValue">{fmtInches(todayRanges.rain.max)}</div>
                         <div className="kpiMeta">Forecast {fmtInches(todayForecast?.precipIn ?? null)}</div>
                         <div className="kpiMeta">
                           Rainy Day Streak: {rainyStreak == null ? "—" : `${rainyStreak} ${rainyStreak === 1 ? "day" : "days"}`}
@@ -745,7 +745,7 @@ export default function Dashboard() {
                     </div>
                     <iframe
                       title="Air Quality Dial"
-                      src="https://widget.airnow.gov/aq-dial-widget/?city=Creswell&state=OR&country=USA&transparent=true"
+                      src="https://widget.airnow.gov/aq-dial-widget/?city=Cottage Grove&state=OR&country=USA&transparent=true"
                       className="kpiEmbedFrame"
                       loading="lazy"
                     />

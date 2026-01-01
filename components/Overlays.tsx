@@ -38,7 +38,10 @@ function windVariabilityDeg(series: WeatherObs[], refTime: Date, windowMs: numbe
   }
 
   if (count < 2) return null;
-  const r = Math.hypot(sumSin, sumCos) / count;
+  const rRaw = Math.hypot(sumSin, sumCos) / count;
+  if (!Number.isFinite(rRaw)) return null;
+  const r = Math.min(1, Math.max(0, rRaw));
+  if (r >= 1) return 0;
   if (r <= 0) return 180;
   const stdRad = Math.sqrt(-2 * Math.log(r));
   const stdDeg = (stdRad * 180) / Math.PI;
