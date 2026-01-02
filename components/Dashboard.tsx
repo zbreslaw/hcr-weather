@@ -661,7 +661,15 @@ export default function Dashboard() {
                                   {p?.temperature != null ? `${p.temperature}°${p.temperatureUnit ?? "F"}` : "—"}
                                 </div>
                                 <div className="forecastWind">{p?.windSpeed ?? "—"}</div>
-                                <div className="forecastPrecip">Precip {fmtInches(precipAmountIn(p))}</div>
+                                <div className="forecastPrecip">
+                                  Precip{" "}
+                                  {(() => {
+                                    const amount = precipAmountIn(p);
+                                    if (amount != null) return fmtInches(amount);
+                                    const prob = p?.probabilityOfPrecipitation?.value;
+                                    return prob == null ? "—" : `${prob}%`;
+                                  })()}
+                                </div>
                                 <div className="forecastSummary">{p?.shortForecast ?? "—"}</div>
                               </div>
                             ))

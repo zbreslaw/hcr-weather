@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 
+export const dynamic = "force-dynamic";
+
 const USER_AGENT = process.env.NEXT_PUBLIC_NWS_USER_AGENT ?? "";
 
 async function fetchJson(url: string) {
   const res = await fetch(url, {
+    cache: "no-store",
     headers: {
       "User-Agent": USER_AGENT,
       Accept: "application/geo+json"
@@ -47,7 +50,7 @@ export async function GET() {
       },
       {
         headers: {
-          "Cache-Control": "public, s-maxage=900, stale-while-revalidate=1800"
+          "Cache-Control": "no-store"
         }
       }
     );
