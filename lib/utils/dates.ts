@@ -69,3 +69,42 @@ export function dateKeyInTimeZone(date: Date, timeZone: string | null) {
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
+
+export function timeSpanMs(values: Array<{ time: string }>) {
+  let min = Infinity;
+  let max = -Infinity;
+
+  for (const entry of values) {
+    const t = new Date(entry.time).getTime();
+    if (!Number.isFinite(t)) continue;
+    if (t < min) min = t;
+    if (t > max) max = t;
+  }
+
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+  return Math.max(0, max - min);
+}
+
+export function dailyTicksAtHour(values: Array<{ time: string }>, hour = 12) {
+  const byDay = new Map<
+    string,
+    { time: string; date: Date; diffMs: number }
+  >();
+
+  for (const entry of values) {
+    const date = new Date(entry.time);
+    if (Number.isNaN(date.getTime())) continue;
+    const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const target = new Date(dayStart.getTime() + hour * 60 * 60 * 1000);
+    const diffMs = Math.abs(date.getTime() - target.getTime());
+    const key = `${dayStart.getFullYear()}-${dayStart.getMonth() + 1}-${dayStart.getDate()}`;
+    const existing = byDay.get(key);
+    if (!existing || diffMs < existing.diffMs) {
+      byDay.set(key, { time: entry.time, date: dayStart, diffMs });
+    }
+  }
+
+  return Array.from(byDay.values())
+    .sort((a, b) => a.date.getTime() - b.date.getTime())
+    .map((entry) => entry.time);
+}

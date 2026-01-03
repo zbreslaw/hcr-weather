@@ -2,18 +2,23 @@
 
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
-import { fmtStat, fmtTime } from "@/lib/utils/format";
+import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
+import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 
 export default function PressureChart({ data }: { data: WeatherObs[] }) {
   const pressureStats = stats(data.map((d) => d.baromrelin));
   const statDecimals = 2;
+  const spanMs = timeSpanMs(data);
+  const useDailyTicks = spanMs > 24 * 60 * 60 * 1000;
+  const ticks = useDailyTicks ? dailyTicksAtHour(data, 12) : undefined;
+  const tickFormatter = useDailyTicks ? fmtDay : fmtTime;
   return (
     <div>
       <div style={{ height: 220 }}>
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} syncId="weather-24h">
-            <XAxis dataKey="time" tickFormatter={fmtTime} minTickGap={28} />
+            <XAxis dataKey="time" tickFormatter={tickFormatter} minTickGap={28} ticks={ticks} />
             <YAxis domain={["auto", "auto"]} />
             <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
             <Line type="monotone" dataKey="baromrelin" dot={false} />

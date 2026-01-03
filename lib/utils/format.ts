@@ -39,3 +39,8 @@ export function fmtDir(value: number) {
   if (value === 270) return "E";
   return "";
 }
+
+export function fmtDay(iso: string) {
+  const d = new Date(iso);
+  return d.toLocaleDateString([], { month: "numeric", day: "numeric" });
+}
