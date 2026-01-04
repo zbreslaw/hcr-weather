@@ -3,12 +3,21 @@ import path from "path";
 import type { ReactNode } from "react";
 
 async function loadAboutMarkdown() {
-  const filePath = path.join(process.cwd(), "content", "about.md");
-  try {
-    return await readFile(filePath, "utf8");
-  } catch {
-    return null;
+  const candidates = [
+    process.env.ABOUT_CONTENT_PATH,
+    "/etc/secrets/content.md",
+    path.join(process.cwd(), "content", "about.md")
+  ].filter(Boolean) as string[];
+
+  for (const filePath of candidates) {
+    try {
+      return await readFile(filePath, "utf8");
+    } catch {
+      // Try next location.
+    }
   }
+
+  return null;
 }
 
 function renderMarkdown(md: string) {
@@ -72,7 +81,11 @@ export default async function AboutPage() {
       <div className="h1">About This Project</div>
       <div className="panel">
         <div className="panelBody">
-          {md ? renderMarkdown(md) : <div className="muted">Add content to `content/about.md`.</div>}
+          {md ? (
+            renderMarkdown(md)
+          ) : (
+            <div className="muted">Add content via `/etc/secrets/content.md` or `content/about.md`.</div>
+          )}
         </div>
       </div>
     </main>
