@@ -1,12 +1,12 @@
 "use client";
 
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ReferenceLine } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 
-export default function WindChart({ data }: { data: WeatherObs[] }) {
+export default function WindChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
   const windStats = stats(data.map((d) => d.windspeedmph));
   const gustStats = stats(data.map((d) => d.windgustmph));
   const statDecimals = 1;
@@ -22,6 +22,7 @@ export default function WindChart({ data }: { data: WeatherObs[] }) {
             <XAxis dataKey="time" tickFormatter={tickFormatter} minTickGap={28} ticks={ticks} />
             <YAxis domain={["auto", "auto"]} />
             <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
+            {highlightTime ? <ReferenceLine x={highlightTime} stroke="rgba(255, 255, 255, 0.35)" /> : null}
             <Legend />
             <Bar dataKey="windspeedmph" name="Wind" fill="#7dd3fc" />
             <Bar dataKey="windgustmph" name="Gust" fill="#fbbf24" />

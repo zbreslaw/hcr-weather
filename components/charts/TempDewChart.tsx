@@ -1,15 +1,19 @@
 "use client";
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 
-export default function TempDewChart({ data }: { data: WeatherObs[] }) {
+export default function TempDewChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
   const tempStats = stats(data.map((d) => d.tempf));
   const dewStats = stats(data.map((d) => d.dewpointf));
-  const statDecimals = 1;
+  const statDecimals = 2;
+  const tooltipValue = (value: any) =>
+    typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : value;
+  const axisValue = (value: any) =>
+    typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : value;
   const spanMs = timeSpanMs(data);
   const useDailyTicks = spanMs > 24 * 60 * 60 * 1000;
   const ticks = useDailyTicks ? dailyTicksAtHour(data, 12) : undefined;
@@ -28,8 +32,12 @@ export default function TempDewChart({ data }: { data: WeatherObs[] }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={data} syncId="weather-24h">
             <XAxis dataKey="time" tickFormatter={tickFormatter} minTickGap={28} ticks={ticks} />
-            <YAxis domain={yDomain} />
-            <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
+            <YAxis domain={yDomain} tickFormatter={axisValue} />
+            <Tooltip
+              labelFormatter={(v) => new Date(String(v)).toLocaleString()}
+              formatter={(value) => tooltipValue(value)}
+            />
+            {highlightTime ? <ReferenceLine x={highlightTime} stroke="rgba(255, 255, 255, 0.35)" /> : null}
             <Line type="monotone" dataKey="tempf" dot={false} />
             <Line type="monotone" dataKey="dewpointf" dot={false} />
           </LineChart>

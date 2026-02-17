@@ -53,4 +53,41 @@ create table if not exists observations_5m (
 create table if not exists observations_15m (like observations_5m including all);
 create table if not exists observations_1h (like observations_5m including all);
 create table if not exists observations_1d (like observations_5m including all);
+
+create type annotation_event_type as enum (
+  'Snow',
+  'Lightning',
+  'Rain',
+  'Hail',
+  'Ice',
+  'Fog',
+  'Temp',
+  'Wind',
+  'Power outage',
+  'Equipment issue',
+  'Other'
+);
+
+create table annotations (
+  id bigserial primary key,
+  event_type annotation_event_type not null,
+  observed_at timestamptz not null default now(),
+  description text,
+  tags text[] default '{}',
+  created_at timestamptz not null default now()
+);
+
+-- Query by time ranges
+create index idx_annotations_observed_at
+on annotations (observed_at desc);
+
+-- Query by event type
+create index idx_annotations_event_type
+on annotations (event_type);
+
+-- Query by tags (GIN index required for arrays)
+create index idx_annotations_tags
+on annotations
+using GIN (tags);
+
 ```

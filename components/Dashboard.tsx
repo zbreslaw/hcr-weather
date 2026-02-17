@@ -10,10 +10,25 @@ import HumidityChart from "./charts/HumidityChart";
 import SolarChart from "./charts/SolarChart";
 import UVChart from "./charts/UVChart";
 import RainChart from "./charts/RainChart";
+import AnnotationStrip from "./charts/AnnotationStrip";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
 import { heatIndexF, precipAmountIn, sumPrecipInches, windChillF } from "@/lib/utils/weather";
+
+const ANNOTATION_EVENTS = [
+  "Snow",
+  "Lightning",
+  "Rain",
+  "Hail",
+  "Ice",
+  "Fog",
+  "Temp",
+  "Wind",
+  "Power outage",
+  "Equipment issue",
+  "Other"
+];
 
 function rangeFor(values: WeatherObs[], getter: (d: WeatherObs) => number | null | undefined) {
   let min = Infinity;
@@ -33,6 +48,13 @@ type SparklineProps = {
   width?: number;
   height?: number;
 };
+
+function toLocalDateTimeInputValue(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours()
+  )}:${pad(date.getMinutes())}`;
+}
 
 function Sparkline({ values, width = 110, height = 36 }: SparklineProps) {
   const points = values.filter((v) => v !== null && v !== undefined && !Number.isNaN(v)) as number[];
@@ -79,6 +101,37 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"current" | "historical" | "forecasted">("current");
   const [alerts, setAlerts] = useState<any[]>([]);
   const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [annotationOpen, setAnnotationOpen] = useState(false);
+  const [annotationStatus, setAnnotationStatus] = useState<"idle" | "saving" | "error" | "success">("idle");
+  const [annotationError, setAnnotationError] = useState<string | null>(null);
+  const [annotationForm, setAnnotationForm] = useState({
+    eventType: ANNOTATION_EVENTS[0],
+    observedAt: "",
+    description: "",
+    tags: "",
+    pin: "",
+    honeypot: ""
+  });
+  const [annotations, setAnnotations] = useState<any[]>([]);
+  const [annotationsError, setAnnotationsError] = useState<string | null>(null);
+  const [annotationFocusTime, setAnnotationFocusTime] = useState<string | null>(null);
+  const [selectedAnnotation, setSelectedAnnotation] = useState<any | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null);
+  const [deleteStatus, setDeleteStatus] = useState<"idle" | "deleting" | "error">("idle");
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deletePin, setDeletePin] = useState("");
+  const [deleteHoneypot, setDeleteHoneypot] = useState("");
+
+  useEffect(() => {
+    if (!annotationOpen) {
+      document.body.classList.remove("modalOpen");
+      return;
+    }
+    document.body.classList.add("modalOpen");
+    return () => {
+      document.body.classList.remove("modalOpen");
+    };
+  }, [annotationOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -149,6 +202,31 @@ export default function Dashboard() {
       clearInterval(id);
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadAnnotations() {
+      try {
+        setAnnotationsError(null);
+        const { from, to } = getRangeWindow(range);
+        const res = await fetch(
+          `/api/annotations?from=${encodeURIComponent(from.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`annotations error ${res.status}`);
+        const json = await res.json();
+        if (!cancelled) setAnnotations(Array.isArray(json) ? json : []);
+      } catch (e: any) {
+        if (!cancelled) setAnnotationsError(e?.message ?? "Failed to load annotations");
+      }
+    }
+
+    loadAnnotations();
+    return () => {
+      cancelled = true;
+    };
+  }, [range]);
 
   useEffect(() => {
     let cancelled = false;
@@ -404,6 +482,104 @@ export default function Dashboard() {
     return null;
   }, [latest?.tempf, latest?.windspeedmph, latest?.humidity]);
 
+  function openAnnotationModal() {
+    setAnnotationError(null);
+    setAnnotationStatus("idle");
+    setAnnotationForm({
+      eventType: ANNOTATION_EVENTS[0],
+      observedAt: toLocalDateTimeInputValue(new Date()),
+      description: "",
+      tags: "",
+      pin: "",
+      honeypot: ""
+    });
+    setAnnotationOpen(true);
+  }
+
+  function closeAnnotationModal() {
+    setAnnotationOpen(false);
+  }
+
+  function openDeleteModal(target: any) {
+    setDeleteTarget(target);
+    setDeletePin("");
+    setDeleteHoneypot("");
+    setDeleteStatus("idle");
+    setDeleteError(null);
+  }
+
+  function closeDeleteModal() {
+    setDeleteTarget(null);
+    setDeleteError(null);
+  }
+
+  async function submitDelete(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!deleteTarget || deleteStatus === "deleting") return;
+    setDeleteStatus("deleting");
+    setDeleteError(null);
+
+    try {
+      const res = await fetch(`/api/annotations/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: deletePin, honeypot: deleteHoneypot })
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error ?? `Request failed (${res.status})`);
+      }
+      setAnnotations((prev) => prev.filter((a) => a.id !== deleteTarget.id));
+      setSelectedAnnotation((prev: any) => (prev?.id === deleteTarget.id ? null : prev));
+      setDeleteTarget(null);
+    } catch (err: any) {
+      setDeleteStatus("error");
+      setDeleteError(err?.message ?? "Failed to delete annotation.");
+    }
+  }
+
+  async function submitAnnotation(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (annotationStatus === "saving") return;
+    setAnnotationStatus("saving");
+    setAnnotationError(null);
+
+    const observedAt = annotationForm.observedAt
+      ? new Date(annotationForm.observedAt)
+      : new Date();
+    if (Number.isNaN(observedAt.getTime())) {
+      setAnnotationStatus("error");
+      setAnnotationError("Invalid observed time.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/annotations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventType: annotationForm.eventType,
+          observedAt: observedAt.toISOString(),
+          description: annotationForm.description,
+          tags: annotationForm.tags,
+          pin: annotationForm.pin,
+          honeypot: annotationForm.honeypot
+        })
+      });
+
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        throw new Error(json?.error ?? `Request failed (${res.status})`);
+      }
+
+      setAnnotationStatus("success");
+      setAnnotationOpen(false);
+    } catch (err: any) {
+      setAnnotationStatus("error");
+      setAnnotationError(err?.message ?? "Failed to save annotation.");
+    }
+  }
+
   function goToHistorical(anchor: string) {
     setActiveTab("historical");
     setTimeout(() => {
@@ -424,29 +600,174 @@ export default function Dashboard() {
 
   return (
     <>
-      <div className="tabs">
-        <button
-          type="button"
-          className={`tabButton ${activeTab === "current" ? "tabButtonActive" : ""}`}
-          onClick={() => setActiveTab("current")}
-        >
-          Current
-        </button>
-        <button
-          type="button"
-          className={`tabButton ${activeTab === "forecasted" ? "tabButtonActive" : ""}`}
-          onClick={() => setActiveTab("forecasted")}
-        >
-          Forecasted
-        </button>
-        <button
-          type="button"
-          className={`tabButton ${activeTab === "historical" ? "tabButtonActive" : ""}`}
-          onClick={() => setActiveTab("historical")}
-        >
-          Historical
+      <div className="tabsRow">
+        <div className="tabs">
+          <button
+            type="button"
+            className={`tabButton ${activeTab === "current" ? "tabButtonActive" : ""}`}
+            onClick={() => setActiveTab("current")}
+          >
+            Current
+          </button>
+          <button
+            type="button"
+            className={`tabButton ${activeTab === "forecasted" ? "tabButtonActive" : ""}`}
+            onClick={() => setActiveTab("forecasted")}
+          >
+            Forecasted
+          </button>
+          <button
+            type="button"
+            className={`tabButton ${activeTab === "historical" ? "tabButtonActive" : ""}`}
+            onClick={() => setActiveTab("historical")}
+          >
+            Historical
+          </button>
+        </div>
+        <button type="button" className="annotateButton" onClick={openAnnotationModal}>
+          Annotate
         </button>
       </div>
+
+      {annotationOpen && (
+        <div className="modalBackdrop" role="dialog" aria-modal="true">
+          <div className="modalCard">
+            <div className="modalHeader">
+              <div>Create annotation</div>
+              <button type="button" className="iconButton" onClick={closeAnnotationModal} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <form className="modalBody" onSubmit={submitAnnotation}>
+              <label className="field">
+                <div className="fieldLabel">Event Type</div>
+                <select
+                  value={annotationForm.eventType}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, eventType: e.target.value })}
+                >
+                  {ANNOTATION_EVENTS.map((event) => (
+                    <option value={event} key={event}>
+                      {event}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="field">
+                <div className="fieldLabel">Observed At</div>
+                <input
+                  type="datetime-local"
+                  value={annotationForm.observedAt}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, observedAt: e.target.value })}
+                />
+              </label>
+
+              <label className="field">
+                <div className="fieldLabel">Description</div>
+                <textarea
+                  rows={3}
+                  value={annotationForm.description}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, description: e.target.value })}
+                />
+              </label>
+
+              <label className="field">
+                <div className="fieldLabel">Tags (comma separated)</div>
+                <input
+                  type="text"
+                  value={annotationForm.tags}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, tags: e.target.value })}
+                />
+              </label>
+
+              <label className="field honeypot">
+                <div className="fieldLabel">Company</div>
+                <input
+                  type="text"
+                  value={annotationForm.honeypot}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, honeypot: e.target.value })}
+                />
+              </label>
+
+              <label className="field">
+                <div className="fieldLabel">PIN</div>
+                <input
+                  type="password"
+                  value={annotationForm.pin}
+                  onChange={(e) => setAnnotationForm({ ...annotationForm, pin: e.target.value })}
+                  required
+                />
+              </label>
+
+              {annotationError ? <div className="fieldError">{annotationError}</div> : null}
+
+              <div className="modalActions">
+                <button type="button" className="secondaryButton" onClick={closeAnnotationModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="primaryButton" disabled={annotationStatus === "saving"}>
+                  {annotationStatus === "saving" ? "Saving…" : "Save annotation"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {deleteTarget && (
+        <div className="modalBackdrop" role="dialog" aria-modal="true">
+          <div className="modalCard">
+            <div className="modalHeader">
+              <div>Delete annotation</div>
+              <button type="button" className="iconButton" onClick={closeDeleteModal} aria-label="Close">
+                ×
+              </button>
+            </div>
+            <form className="modalBody" onSubmit={submitDelete}>
+              <div className="field">
+                <div className="fieldLabel">Event</div>
+                <div>{deleteTarget.event_type}</div>
+              </div>
+              <div className="field">
+                <div className="fieldLabel">Observed At</div>
+                <div>{new Date(deleteTarget.observed_at).toLocaleString()}</div>
+              </div>
+              {deleteTarget.description ? (
+                <div className="field">
+                  <div className="fieldLabel">Description</div>
+                  <div>{deleteTarget.description}</div>
+                </div>
+              ) : null}
+
+              <label className="field honeypot">
+                <div className="fieldLabel">Company</div>
+                <input type="text" value={deleteHoneypot} onChange={(e) => setDeleteHoneypot(e.target.value)} />
+              </label>
+
+              <label className="field">
+                <div className="fieldLabel">PIN</div>
+                <input
+                  type="password"
+                  value={deletePin}
+                  onChange={(e) => setDeletePin(e.target.value)}
+                  required
+                />
+              </label>
+
+              {deleteError ? <div className="fieldError">{deleteError}</div> : null}
+
+              <div className="modalActions">
+                <button type="button" className="secondaryButton" onClick={closeDeleteModal}>
+                  Cancel
+                </button>
+                <button type="submit" className="primaryButton" disabled={deleteStatus === "deleting"}>
+                  {deleteStatus === "deleting" ? "Deleting…" : "Delete"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {activeTab === "current" && (
         <div className="grid">
@@ -792,13 +1113,48 @@ export default function Dashboard() {
             </div>
 
             <div className="panelBody">
+              <div className="panel" style={{ borderRadius: 14 }}>
+                <div className="panelHeader">
+                  <div>Annotations</div>
+                  <div className="muted">{annotationsError ? `Error: ${annotationsError}` : " "}</div>
+                </div>
+                <div className="panelBody">
+                  <AnnotationStrip
+                    data={annotations}
+                    selectedTime={annotationFocusTime}
+                    onSelect={(time) => setAnnotationFocusTime(time || null)}
+                    onSelectAnnotation={(annotation) => setSelectedAnnotation(annotation)}
+                  />
+                  {selectedAnnotation ? (
+                    <div className="annotationDetail">
+                      <div>
+                        <strong>{selectedAnnotation.event_type}</strong>
+                        {selectedAnnotation.description ? ` — ${selectedAnnotation.description}` : ""}
+                      </div>
+                      <div className="annotationDetailMeta">
+                        {new Date(selectedAnnotation.observed_at).toLocaleString()}
+                      </div>
+                      <button
+                        type="button"
+                        className="annotationDeleteButton"
+                        onClick={() => openDeleteModal(selectedAnnotation)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+
+              <div style={{ height: 12 }} />
+
               <div className="panel" style={{ borderRadius: 14 }} id="hist-temp-dew">
                 <div className="panelHeader">
                   <div>Temp & Dew Point</div>
                   <div className="muted">°F</div>
                 </div>
                 <div className="panelBody">
-                  <TempDewChart data={series} />
+                  <TempDewChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -822,7 +1178,7 @@ export default function Dashboard() {
                   <div className="muted">inHg</div>
                 </div>
                 <div className="panelBody">
-                  <PressureChart data={series} />
+                  <PressureChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -834,7 +1190,7 @@ export default function Dashboard() {
                   <div className="muted">mph</div>
                 </div>
                 <div className="panelBody">
-                  <WindChart data={series} />
+                  <WindChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -846,7 +1202,7 @@ export default function Dashboard() {
                   <div className="muted">N / E / S / W</div>
                 </div>
                 <div className="panelBody">
-                  <WindDirectionChart data={series} />
+                  <WindDirectionChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -858,7 +1214,7 @@ export default function Dashboard() {
                   <div className="muted">%</div>
                 </div>
                 <div className="panelBody">
-                  <HumidityChart data={series} />
+                  <HumidityChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -870,7 +1226,7 @@ export default function Dashboard() {
                   <div className="muted">W/m²</div>
                 </div>
                 <div className="panelBody">
-                  <SolarChart data={series} />
+                  <SolarChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
 
@@ -882,7 +1238,7 @@ export default function Dashboard() {
                   <div className="muted">UV</div>
                 </div>
                 <div className="panelBody">
-                  <UVChart data={series} />
+                  <UVChart data={series} highlightTime={annotationFocusTime} />
                 </div>
               </div>
             </div>

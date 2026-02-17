@@ -1,12 +1,12 @@
 "use client";
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 
-export default function HumidityChart({ data }: { data: WeatherObs[] }) {
+export default function HumidityChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
   const humidityStats = stats(data.map((d) => d.humidity));
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
@@ -21,6 +21,7 @@ export default function HumidityChart({ data }: { data: WeatherObs[] }) {
             <XAxis dataKey="time" tickFormatter={tickFormatter} minTickGap={28} ticks={ticks} />
             <YAxis domain={["auto", "auto"]} />
             <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
+            {highlightTime ? <ReferenceLine x={highlightTime} stroke="rgba(255, 255, 255, 0.35)" /> : null}
             <Line type="monotone" dataKey="humidity" dot={false} />
           </LineChart>
         </ResponsiveContainer>

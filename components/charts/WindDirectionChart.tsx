@@ -1,11 +1,11 @@
 "use client";
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtDir, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
 
-export default function WindDirectionChart({ data }: { data: WeatherObs[] }) {
+export default function WindDirectionChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
   const spanMs = timeSpanMs(data);
   const useDailyTicks = spanMs > 24 * 60 * 60 * 1000;
   const ticks = useDailyTicks ? dailyTicksAtHour(data, 12) : undefined;
@@ -24,6 +24,7 @@ export default function WindDirectionChart({ data }: { data: WeatherObs[] }) {
               tickFormatter={fmtDir}
             />
             <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
+            {highlightTime ? <ReferenceLine x={highlightTime} stroke="rgba(255, 255, 255, 0.35)" /> : null}
             <Line type="monotone" dataKey="winddir" dot stroke="transparent" />
           </LineChart>
         </ResponsiveContainer>
