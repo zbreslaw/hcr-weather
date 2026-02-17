@@ -624,8 +624,8 @@ export default function Dashboard() {
             Historical
           </button>
         </div>
-        <button type="button" className="annotateButton" onClick={openAnnotationModal}>
-          Annotate
+        <button type="button" className="annotateButton" onClick={openAnnotationModal} aria-label="Annotate">
+          <span aria-hidden="true">✎</span>
         </button>
       </div>
 
