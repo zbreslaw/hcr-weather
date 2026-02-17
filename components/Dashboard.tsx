@@ -404,6 +404,24 @@ export default function Dashboard() {
     return null;
   }, [latest?.tempf, latest?.windspeedmph, latest?.humidity]);
 
+  function goToHistorical(anchor: string) {
+    setActiveTab("historical");
+    setTimeout(() => {
+      const el = document.getElementById(anchor);
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  }
+
+  function onKpiActivate(anchor: string) {
+    return (event: React.MouseEvent | React.KeyboardEvent) => {
+      if ("key" in event) {
+        if (event.key !== "Enter" && event.key !== " ") return;
+        event.preventDefault();
+      }
+      goToHistorical(anchor);
+    };
+  }
+
   return (
     <>
       <div className="tabs">
@@ -488,7 +506,13 @@ export default function Dashboard() {
 
               <div className="panelBody">
                 <div className="kpis kpisStacked">
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-temp-dew")}
+                    onKeyDown={onKpiActivate("hist-temp-dew")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Tempature</div>
@@ -509,7 +533,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.tempf ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-temp-dew")}
+                    onKeyDown={onKpiActivate("hist-temp-dew")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Dew Point</div>
@@ -521,7 +551,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.dewpointf ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-rain")}
+                    onKeyDown={onKpiActivate("hist-rain")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Today&apos;s Rain</div>
@@ -534,7 +570,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.dailyrainin ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-pressure")}
+                    onKeyDown={onKpiActivate("hist-pressure")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Relative Pressure</div>
@@ -546,7 +588,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.baromrelin ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-wind")}
+                    onKeyDown={onKpiActivate("hist-wind")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Wind</div>
@@ -558,7 +606,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.windspeedmph ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-humidity")}
+                    onKeyDown={onKpiActivate("hist-humidity")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Humidity</div>
@@ -570,7 +624,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.humidity ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-solar")}
+                    onKeyDown={onKpiActivate("hist-solar")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Solar Radiation</div>
@@ -582,7 +642,13 @@ export default function Dashboard() {
                       <Sparkline values={todaySeries.map((d) => d.solarradiation ?? null)} />
                     </div>
                   </div>
-                  <div className="kpi">
+                  <div
+                    className="kpi kpiClickable"
+                    role="button"
+                    tabIndex={0}
+                    onClick={onKpiActivate("hist-uv")}
+                    onKeyDown={onKpiActivate("hist-uv")}
+                  >
                     <div className="kpiRow">
                       <div className="kpiMain">
                         <div className="kpiLabel">Ultra-Violet Radiation Index</div>
@@ -726,7 +792,7 @@ export default function Dashboard() {
             </div>
 
             <div className="panelBody">
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-temp-dew">
                 <div className="panelHeader">
                   <div>Temp & Dew Point</div>
                   <div className="muted">°F</div>
@@ -738,7 +804,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-rain">
                 <div className="panelHeader">
                   <div>Daily Rain</div>
                   <div className="muted">in</div>
@@ -750,7 +816,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-pressure">
                 <div className="panelHeader">
                   <div>Pressure</div>
                   <div className="muted">inHg</div>
@@ -762,7 +828,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-wind">
                 <div className="panelHeader">
                   <div>Wind</div>
                   <div className="muted">mph</div>
@@ -774,7 +840,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-wind-direction">
                 <div className="panelHeader">
                   <div>Wind Direction</div>
                   <div className="muted">N / E / S / W</div>
@@ -786,7 +852,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-humidity">
                 <div className="panelHeader">
                   <div>Humidity</div>
                   <div className="muted">%</div>
@@ -798,7 +864,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-solar">
                 <div className="panelHeader">
                   <div>Solar Radiation</div>
                   <div className="muted">W/m²</div>
@@ -810,7 +876,7 @@ export default function Dashboard() {
 
               <div style={{ height: 12 }} />
 
-              <div className="panel" style={{ borderRadius: 14 }}>
+              <div className="panel" style={{ borderRadius: 14 }} id="hist-uv">
                 <div className="panelHeader">
                   <div>UV Index</div>
                   <div className="muted">UV</div>
