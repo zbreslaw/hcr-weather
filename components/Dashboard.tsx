@@ -481,6 +481,12 @@ export default function Dashboard() {
     if (windChill != null) return { value: windChill, label: "Wind Chill" };
     return null;
   }, [latest?.tempf, latest?.windspeedmph, latest?.humidity]);
+  const isLatestStale = useMemo(() => {
+    if (!latest?.time) return false;
+    const latestTime = new Date(latest.time).getTime();
+    if (!Number.isFinite(latestTime)) return false;
+    return Date.now() - latestTime > 5 * 60 * 1000;
+  }, [latest?.time]);
 
   function openAnnotationModal() {
     setAnnotationError(null);
@@ -784,6 +790,12 @@ export default function Dashboard() {
                       minute: "2-digit"
                     })}`
                   : "Loading…"}
+                {latest && isLatestStale ? (
+                  <span className="staleWarning" title="No updates in over 5 minutes" aria-label="Stale data">
+                    {" "}
+                    ⚠
+                  </span>
+                ) : null}
               </div>
             </div>
             <WeatherMap

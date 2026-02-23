@@ -308,6 +308,11 @@ body.modalOpen {
   font-size: 12px;
 }
 
+.staleWarning {
+  color: #fbbf24;
+  font-size: 12px;
+}
+
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

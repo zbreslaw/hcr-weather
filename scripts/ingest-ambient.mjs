@@ -64,12 +64,16 @@ async function fetchAmbient() {
     `?apiKey=${encodeURIComponent(AMBIENT_API_KEY)}` +
     `&applicationKey=${encodeURIComponent(AMBIENT_APP_KEY)}`;
 
+  const start = Date.now();
   const res = await fetch(url, { headers: { "Accept": "application/json" } });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Ambient fetch failed: ${res.status} ${res.statusText} ${text}`);
+    console.error(`[error] ambient fetch failed: ${res.status} ${res.statusText} ${text}`);
+    return null;
   }
-  return res.json();
+  const json = await res.json();
+  console.log(`[info] fetched ambient data in ${Date.now() - start}ms`);
+  return json;
 }
 
 async function upsertRollup(table, start, end) {
@@ -134,6 +138,7 @@ async function upsertRollup(table, start, end) {
 async function upsertObservation(obs) {
   const t = parseTime(obs);
   if (!t) throw new Error("Could not parse observation time (dateutc missing/invalid)");
+  const start = Date.now();
 
   // Map common Ambient fields -> your table columns
   const row = {
@@ -188,10 +193,12 @@ async function upsertObservation(obs) {
   ];
 
   await pool.query(sql, params);
+  console.log(`[info] upserted observation in ${Date.now() - start}ms`);
   return row;
 }
 
 async function updateRollups(obsTime) {
+  const start = Date.now();
   const rollups = [
     { table: "observations_5m", minutes: 5 },
     { table: "observations_15m", minutes: 15 },
@@ -204,20 +211,26 @@ async function updateRollups(obsTime) {
     const end = new Date(start.getTime() + rollup.minutes * 60 * 1000);
     await upsertRollup(rollup.table, start, end);
   }
+  console.log(`[info] rollups updated in ${Date.now() - start}ms`);
 }
 
 async function main() {
   try {
+    console.log("[info] ingest start");
     const deviceJson = await fetchAmbient();
+    if (!deviceJson) return;
     const obs = unwrapObservation(deviceJson);
 
     if (!obs) throw new Error("No observation found in Ambient response");
 
     const inserted = await upsertObservation(obs);
     await updateRollups(new Date(inserted.time));
-    console.log(`[ok] upserted ${inserted.time} temp=${inserted.tempf} wind=${inserted.windspeedmph} gust=${inserted.windgustmph}`);
+    console.log(
+      `[ok] upserted ${inserted.time} temp=${inserted.tempf} wind=${inserted.windspeedmph} gust=${inserted.windgustmph}`
+    );
   } finally {
     await pool.end();
+    console.log("[info] ingest done");
   }
 }
 
