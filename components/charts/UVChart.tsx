@@ -3,15 +3,27 @@
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
-import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
+import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 
-export default function UVChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
+export default function UVChart({
+  data,
+  highlightTime,
+  rangeWindow
+}: {
+  data: WeatherObs[];
+  highlightTime?: string | null;
+  rangeWindow?: { from: Date; to: Date } | null;
+}) {
   const uvStats = stats(data.map((d) => d.uv));
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
-  const useDailyTicks = spanMs > 24 * 60 * 60 * 1000;
-  const ticks = useDailyTicks ? dailyTicksAtHour(data, 12) : undefined;
+  const windowTicks =
+    rangeWindow?.from && rangeWindow?.to
+      ? ticksForTimeWindow(rangeWindow.from.toISOString(), rangeWindow.to.toISOString())
+      : null;
+  const useDailyTicks = windowTicks?.useDailyTicks ?? spanMs > 24 * 60 * 60 * 1000;
+  const ticks = windowTicks?.ticks ?? (useDailyTicks ? dailyTicksAtHour(data, 12) : undefined);
   const tickFormatter = useDailyTicks ? fmtDay : fmtTime;
   return (
     <div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtInches } from "@/lib/utils/format";
 
@@ -29,6 +29,8 @@ export default function RainChart({ data, totalsData }: { data: WeatherObs[]; to
   }
 
   const dailyData = Array.from(daily.values()).sort((a, b) => a.date.getTime() - b.date.getTime());
+  const maxDailyRain = dailyData.reduce((max, d) => (d.max > max ? d.max : max), -Infinity);
+  const hasMax = Number.isFinite(maxDailyRain);
 
   const totalsDaily = new Map<string, { date: Date; label: string; max: number }>();
   const totalsSource = totalsData ?? data;
@@ -74,7 +76,14 @@ export default function RainChart({ data, totalsData }: { data: WeatherObs[]; to
             <XAxis dataKey="label" minTickGap={12} />
             <YAxis domain={[0, "auto"]} />
             <Tooltip cursor={false} />
-            <Bar dataKey="max" fill="rgba(255, 255, 255, 0.6)" activeBar={undefined} />
+            <Bar dataKey="max" fill="rgba(255, 255, 255, 0.6)" activeBar={undefined}>
+              {dailyData.map((entry) => (
+                <Cell
+                  key={entry.label}
+                  fill={hasMax && entry.max === maxDailyRain ? "rgba(248, 113, 113, 0.95)" : "rgba(255, 255, 255, 0.6)"}
+                />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>

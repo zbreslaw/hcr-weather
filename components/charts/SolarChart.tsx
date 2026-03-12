@@ -1,20 +1,45 @@
 "use client";
 
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine } from "recharts";
+import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceLine, ReferenceDot } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
-import { dailyTicksAtHour, timeSpanMs } from "@/lib/utils/dates";
+import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
 import { stats } from "@/lib/utils/math";
 import { totalWhPerM2 } from "@/lib/utils/weather";
 
-export default function SolarChart({ data, highlightTime }: { data: WeatherObs[]; highlightTime?: string | null }) {
+export default function SolarChart({
+  data,
+  highlightTime,
+  rangeWindow
+}: {
+  data: WeatherObs[];
+  highlightTime?: string | null;
+  rangeWindow?: { from: Date; to: Date } | null;
+}) {
   const solarStats = stats(data.map((d) => d.solarradiation));
   const solarTotal = totalWhPerM2(data);
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
-  const useDailyTicks = spanMs > 24 * 60 * 60 * 1000;
-  const ticks = useDailyTicks ? dailyTicksAtHour(data, 12) : undefined;
+  const windowTicks =
+    rangeWindow?.from && rangeWindow?.to
+      ? ticksForTimeWindow(rangeWindow.from.toISOString(), rangeWindow.to.toISOString())
+      : null;
+  const useDailyTicks = windowTicks?.useDailyTicks ?? spanMs > 24 * 60 * 60 * 1000;
+  const ticks = windowTicks?.ticks ?? (useDailyTicks ? dailyTicksAtHour(data, 12) : undefined);
   const tickFormatter = useDailyTicks ? fmtDay : fmtTime;
+
+  const solarMax = (() => {
+    let max: { time: string; value: number } | null = null;
+    for (const entry of data) {
+      const value = entry.solarradiation;
+      if (value == null || Number.isNaN(value)) continue;
+      const time = entry.time;
+      if (!time) continue;
+      if (!max || value > max.value) max = { time, value };
+    }
+    return max;
+  })();
+
   return (
     <div>
       <div style={{ height: 220 }}>
@@ -24,6 +49,9 @@ export default function SolarChart({ data, highlightTime }: { data: WeatherObs[]
             <YAxis domain={["auto", "auto"]} />
             <Tooltip labelFormatter={(v) => new Date(String(v)).toLocaleString()} />
             {highlightTime ? <ReferenceLine x={highlightTime} stroke="rgba(255, 255, 255, 0.35)" /> : null}
+            {solarMax ? (
+              <ReferenceDot x={solarMax.time} y={solarMax.value} r={5} fill="#f97316" stroke="#0b1220" strokeWidth={1} />
+            ) : null}
             <Line type="monotone" dataKey="solarradiation" dot={false} />
           </LineChart>
         </ResponsiveContainer>
