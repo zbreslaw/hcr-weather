@@ -11,6 +11,7 @@ import SolarChart from "./charts/SolarChart";
 import UVChart from "./charts/UVChart";
 import RainChart from "./charts/RainChart";
 import AnnotationStrip from "./charts/AnnotationStrip";
+import PollenSummary from "./PollenSummary";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
@@ -101,6 +102,9 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"current" | "historical" | "forecasted">("current");
   const [alerts, setAlerts] = useState<any[]>([]);
   const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [pollen, setPollen] = useState<{ date: any; types: any[] } | null>(null);
+  const [pollenError, setPollenError] = useState<string | null>(null);
+  const [pollenLoading, setPollenLoading] = useState(true);
   const [annotationOpen, setAnnotationOpen] = useState(false);
   const [annotationStatus, setAnnotationStatus] = useState<"idle" | "saving" | "error" | "success">("idle");
   const [annotationError, setAnnotationError] = useState<string | null>(null);
@@ -245,6 +249,41 @@ export default function Dashboard() {
 
     loadAlerts();
     const id = setInterval(loadAlerts, 15 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadPollen() {
+      try {
+        setPollenError(null);
+        setPollenLoading(true);
+        const res = await fetch("/api/pollen");
+        if (!res.ok) throw new Error(`pollen error ${res.status}`);
+        const json = await res.json();
+        if (json?.error) throw new Error(json.error);
+        if (!cancelled) {
+          setPollen({
+            date: json?.date ?? null,
+            types: Array.isArray(json?.types) ? json.types : []
+          });
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setPollen(null);
+          setPollenError(e?.message ?? "Failed to load pollen");
+        }
+      } finally {
+        if (!cancelled) setPollenLoading(false);
+      }
+    }
+
+    loadPollen();
+    const id = setInterval(loadPollen, 8 * 60 * 60 * 1000);
     return () => {
       cancelled = true;
       clearInterval(id);
@@ -1000,6 +1039,12 @@ export default function Dashboard() {
                       src="https://widget.airnow.gov/aq-dial-widget/?city=Cottage Grove&state=OR&country=USA&transparent=true"
                       className="kpiEmbedFrame"
                       loading="lazy"
+                    />
+                    <PollenSummary
+                      types={pollen?.types ?? []}
+                      date={pollen?.date ?? null}
+                      error={pollenError}
+                      loading={pollenLoading}
                     />
                   </div>
                 </div>

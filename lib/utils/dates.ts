@@ -70,6 +70,16 @@ export function dateKeyInTimeZone(date: Date, timeZone: string | null) {
   return `${get("year")}-${get("month")}-${get("day")}`;
 }
 
+export function formatPollenDate(date: { year?: number; month?: number; day?: number } | null | undefined) {
+  if (!date?.year || !date?.month || !date?.day) return null;
+  const anchored = new Date(date.year, date.month - 1, date.day, 12, 0, 0, 0);
+  return anchored.toLocaleDateString([], {
+    weekday: "short",
+    month: "short",
+    day: "numeric"
+  });
+}
+
 export function timeSpanMs(values: Array<{ time: string }>) {
   let min = Infinity;
   let max = -Infinity;

@@ -367,6 +367,79 @@ body.modalOpen {
   margin: 0 auto;
 }
 
+.pollenSummary {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+  display: grid;
+  gap: 8px;
+}
+
+.pollenHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.pollenDate {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.pollenError {
+  font-size: 12px;
+  color: #fca5a5;
+}
+
+.pollenGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.pollenItem {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px;
+  display: grid;
+  gap: 2px;
+  min-height: 64px;
+}
+
+.pollenTypeRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pollenSwatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.pollenTypeName {
+  font-size: 11px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.pollenValue {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.1;
+}
+
+.pollenCategory {
+  font-size: 11px;
+  color: var(--muted);
+  min-height: 14px;
+}
+
 .alertsPanel {
   border-top: 1px solid var(--border);
   padding-top: 12px;
