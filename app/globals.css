@@ -440,6 +440,50 @@ body.modalOpen {
   min-height: 14px;
 }
 
+.envPanelsRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
+.envPanel {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+
+.envPanelFire {
+  gap: 10px;
+}
+
+.envPanel .pollenSummary {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.envPanel .burnRestrictionsSummary {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+
+.envPanelAqFrame {
+  margin: 0 auto;
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .envPanelsRow {
+    grid-template-columns: 1fr;
+  }
+}
+
 .alertsPanel {
   border-top: 1px solid var(--border);
   padding-top: 12px;
@@ -484,7 +528,29 @@ body.modalOpen {
   margin-top: 6px;
 }
 
+.envPanel .kpiLabel,
+.envPanelTitleLink {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: normal;
+}
+
+.envPanelTitleLink {
+  text-decoration: none;
+}
+
+.envPanelTitleLink:hover {
+  color: var(--text);
+}
+
 .fireDangerHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.burnRestrictionsHeader {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -494,12 +560,7 @@ body.modalOpen {
 .fireDangerBody {
   display: grid;
   gap: 8px;
-}
-
-.fireDangerLink {
-  display: block;
-  width: fit-content;
-  margin: 0 auto;
+  height: 226px;
 }
 
 .fireDangerImage {
@@ -507,32 +568,14 @@ body.modalOpen {
   max-width: 100%;
   width: min(280px, 100%);
   height: auto;
+  margin: 0 auto;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.04);
 }
 
-.fireDangerSourceLink {
-  display: block;
-  text-align: center;
-  font-size: 12px;
-  color: var(--muted);
-  text-decoration: none;
-}
-
-.fireDangerSourceLink:hover {
-  color: var(--text);
-}
-
 .burnRestrictionsSummary {
   display: grid;
-  gap: 8px;
-}
-
-.burnRestrictionsHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
   gap: 8px;
 }
 

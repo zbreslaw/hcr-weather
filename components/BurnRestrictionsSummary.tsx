@@ -38,7 +38,14 @@ export default function BurnRestrictionsSummary({
   return (
     <div className="burnRestrictionsSummary">
       <div className="burnRestrictionsHeader">
-        <div className="kpiLabel">Burn Restrictions</div>
+        <a
+          href={data?.sourceUrl ?? "https://www.lrapa-or.gov/air-quality-protection/burning-overview/"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="envPanelTitleLink"
+        >
+          LRAPA Burning Restrictions
+        </a>
         {dateLabel ? <div className="burnRestrictionsDate">{dateLabel}</div> : null}
       </div>
       {error ? <div className="burnRestrictionsError">{error}</div> : loading ? <div className="muted">Loading…</div> : null}
@@ -57,11 +64,6 @@ export default function BurnRestrictionsSummary({
         </div>
       ) : !loading && !error ? (
         <div className="muted">Burn restrictions unavailable.</div>
-      ) : null}
-      {data?.sourceUrl ? (
-        <a href={data.sourceUrl} target="_blank" rel="noopener noreferrer" className="fireDangerSourceLink">
-          LRAPA burning overview
-        </a>
       ) : null}
     </div>
   );

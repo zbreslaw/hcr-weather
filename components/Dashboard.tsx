@@ -920,6 +920,59 @@ export default function Dashboard() {
               latest={latest}
               series={series}
               timeZone={stationTimeZone}
+              environment={
+                <div className="envPanelsRow">
+                  <div className="envPanel">
+                    <div className="kpiLabel">Air Quality</div>
+                    <iframe
+                      title="Air Quality Dial"
+                      src="https://widget.airnow.gov/aq-dial-widget/?city=Cottage Grove&state=OR&country=USA&transparent=true"
+                      className="kpiEmbedFrame envPanelAqFrame"
+                      loading="lazy"
+                    />
+                    <PollenSummary
+                      types={pollen?.types ?? []}
+                      date={pollen?.date ?? null}
+                      error={pollenError}
+                      loading={pollenLoading}
+                    />
+                  </div>
+                  <div className="envPanel envPanelFire">
+                    <div className="fireDangerHeader">
+                      <a
+                        href={
+                          fireDanger?.sourceUrl ?? "https://www.southlanefire.org/burning-information"
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="envPanelTitleLink"
+                      >
+                        South Lane Fire Danger
+                      </a>
+                      <div className="muted">{fireDangerError ? `Error: ${fireDangerError}` : " "}</div>
+                    </div>
+                    {fireDangerLoading && !fireDanger?.imageUrl ? (
+                      <div className="muted">Loading…</div>
+                    ) : fireDanger?.imageUrl ? (
+                      <div className="fireDangerBody">
+                        <img
+                          src={fireDanger.imageUrl}
+                          alt={fireDanger.level ? `${fireDanger.level} fire danger` : "Fire danger"}
+                          className="fireDangerImage"
+                          loading="lazy"
+                        />
+                      </div>
+                    ) : (
+                      <div className="muted">Fire danger unavailable.</div>
+                    )}
+                    <BurnRestrictionsSummary
+                      data={burnRestrictions}
+                      error={burnRestrictionsError}
+                      loading={burnRestrictionsLoading}
+                    />
+                  </div>
+                </div>
+              }
               alerts={
                 <div className="alertsPanel">
                   <div className="alertsHeader">
@@ -1108,65 +1161,6 @@ export default function Dashboard() {
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.uv ?? null)} />
                     </div>
-                  </div>
-                  <div className="kpi kpiEmbed">
-                    <div className="kpiMain">
-                      <div className="kpiLabel">Air Quality</div>
-                    </div>
-                    <iframe
-                      title="Air Quality Dial"
-                      src="https://widget.airnow.gov/aq-dial-widget/?city=Cottage Grove&state=OR&country=USA&transparent=true"
-                      className="kpiEmbedFrame"
-                      loading="lazy"
-                    />
-                    <PollenSummary
-                      types={pollen?.types ?? []}
-                      date={pollen?.date ?? null}
-                      error={pollenError}
-                      loading={pollenLoading}
-                    />
-                  </div>
-                  <div className="kpi kpiEmbed">
-                    <div className="fireDangerHeader">
-                      <div className="kpiLabel">Fire Danger</div>
-                      <div className="muted">{fireDangerError ? `Error: ${fireDangerError}` : " "}</div>
-                    </div>
-                    {fireDangerLoading && !fireDanger?.imageUrl ? (
-                      <div className="muted">Loading…</div>
-                    ) : fireDanger?.imageUrl ? (
-                      <div className="fireDangerBody">
-                        <a
-                          href={fireDanger.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="fireDangerLink"
-                        >
-                          <img
-                            src={fireDanger.imageUrl}
-                            alt={fireDanger.level ? `${fireDanger.level} fire danger` : "Fire danger"}
-                            className="fireDangerImage"
-                            loading="lazy"
-                          />
-                        </a>
-                        <a
-                          href={fireDanger.sourceUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="fireDangerSourceLink"
-                        >
-                          South Lane County Fire burn information
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="muted">Fire danger unavailable.</div>
-                    )}
-                  </div>
-                  <div className="kpi kpiEmbed">
-                    <BurnRestrictionsSummary
-                      data={burnRestrictions}
-                      error={burnRestrictionsError}
-                      loading={burnRestrictionsLoading}
-                    />
                   </div>
                 </div>
               </div>
