@@ -1019,7 +1019,7 @@ export default function Dashboard() {
                   >
                     <div className="kpiRow">
                       <div className="kpiMain">
-                        <div className="kpiLabel">Tempature</div>
+                        <div className="kpiLabel">Temperature</div>
                         <div className="kpiValue">{fmt(latest?.tempf, "°F")}</div>
                         <div className="kpiMeta">
                           Today {fmtHighLow(todayRanges.temp.min, todayRanges.temp.max, "°F")}
