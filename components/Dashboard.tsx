@@ -12,6 +12,7 @@ import UVChart from "./charts/UVChart";
 import RainChart from "./charts/RainChart";
 import AnnotationStrip from "./charts/AnnotationStrip";
 import PollenSummary from "./PollenSummary";
+import BurnRestrictionsSummary from "./BurnRestrictionsSummary";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
@@ -102,6 +103,24 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<"current" | "historical" | "forecasted">("current");
   const [alerts, setAlerts] = useState<any[]>([]);
   const [alertsError, setAlertsError] = useState<string | null>(null);
+  const [fireDanger, setFireDanger] = useState<{
+    level: string | null;
+    imageUrl: string | null;
+    sourceUrl: string;
+  } | null>(null);
+  const [fireDangerError, setFireDangerError] = useState<string | null>(null);
+  const [fireDangerLoading, setFireDangerLoading] = useState(true);
+  const [burnRestrictions, setBurnRestrictions] = useState<{
+    areaName: string;
+    status: "allowed" | "prohibited";
+    mapFillColor: string;
+    display: string;
+    note: string | null;
+    advisoryDate: string | null;
+    sourceUrl: string;
+  } | null>(null);
+  const [burnRestrictionsError, setBurnRestrictionsError] = useState<string | null>(null);
+  const [burnRestrictionsLoading, setBurnRestrictionsLoading] = useState(true);
   const [pollen, setPollen] = useState<{ date: any; types: any[] } | null>(null);
   const [pollenError, setPollenError] = useState<string | null>(null);
   const [pollenLoading, setPollenLoading] = useState(true);
@@ -231,6 +250,66 @@ export default function Dashboard() {
       cancelled = true;
     };
   }, [range]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadBurnRestrictions() {
+      try {
+        setBurnRestrictionsError(null);
+        setBurnRestrictionsLoading(true);
+        const res = await fetch("/api/burn-restrictions");
+        if (!res.ok) throw new Error(`burn restrictions error ${res.status}`);
+        const json = await res.json();
+        if (json?.error) throw new Error(json.error);
+        if (!cancelled) setBurnRestrictions(json);
+      } catch (e: any) {
+        if (!cancelled) {
+          setBurnRestrictions(null);
+          setBurnRestrictionsError(e?.message ?? "Failed to load burn restrictions");
+        }
+      } finally {
+        if (!cancelled) setBurnRestrictionsLoading(false);
+      }
+    }
+
+    loadBurnRestrictions();
+    const id = setInterval(loadBurnRestrictions, 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadFireDanger() {
+      try {
+        setFireDangerError(null);
+        setFireDangerLoading(true);
+        const res = await fetch("/api/fire-danger");
+        if (!res.ok) throw new Error(`fire danger error ${res.status}`);
+        const json = await res.json();
+        if (json?.error) throw new Error(json.error);
+        if (!cancelled) setFireDanger(json);
+      } catch (e: any) {
+        if (!cancelled) {
+          setFireDanger(null);
+          setFireDangerError(e?.message ?? "Failed to load fire danger");
+        }
+      } finally {
+        if (!cancelled) setFireDangerLoading(false);
+      }
+    }
+
+    loadFireDanger();
+    const id = setInterval(loadFireDanger, 60 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -1045,6 +1124,48 @@ export default function Dashboard() {
                       date={pollen?.date ?? null}
                       error={pollenError}
                       loading={pollenLoading}
+                    />
+                  </div>
+                  <div className="kpi kpiEmbed">
+                    <div className="fireDangerHeader">
+                      <div className="kpiLabel">Fire Danger</div>
+                      <div className="muted">{fireDangerError ? `Error: ${fireDangerError}` : " "}</div>
+                    </div>
+                    {fireDangerLoading && !fireDanger?.imageUrl ? (
+                      <div className="muted">Loading…</div>
+                    ) : fireDanger?.imageUrl ? (
+                      <div className="fireDangerBody">
+                        <a
+                          href={fireDanger.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="fireDangerLink"
+                        >
+                          <img
+                            src={fireDanger.imageUrl}
+                            alt={fireDanger.level ? `${fireDanger.level} fire danger` : "Fire danger"}
+                            className="fireDangerImage"
+                            loading="lazy"
+                          />
+                        </a>
+                        <a
+                          href={fireDanger.sourceUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="fireDangerSourceLink"
+                        >
+                          South Lane County Fire burn information
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="muted">Fire danger unavailable.</div>
+                    )}
+                  </div>
+                  <div className="kpi kpiEmbed">
+                    <BurnRestrictionsSummary
+                      data={burnRestrictions}
+                      error={burnRestrictionsError}
+                      loading={burnRestrictionsLoading}
                     />
                   </div>
                 </div>
