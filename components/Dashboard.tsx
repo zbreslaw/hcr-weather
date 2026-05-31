@@ -13,6 +13,7 @@ import RainChart from "./charts/RainChart";
 import AnnotationStrip from "./charts/AnnotationStrip";
 import PollenSummary from "./PollenSummary";
 import BurnRestrictionsSummary from "./BurnRestrictionsSummary";
+import AircraftOverhead from "./AircraftOverhead";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
@@ -1165,6 +1166,7 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+            <AircraftOverhead />
           </div>
         </div>
       )}
