@@ -61,6 +61,10 @@ function toLocalDateTimeInputValue(date: Date) {
   )}:${pad(date.getMinutes())}`;
 }
 
+function formatAlertHeadline(headline: string) {
+  return headline.replace(/\s+until\b.*?(?=\s+by\b|$)/i, "");
+}
+
 function Sparkline({ values, width = 110, height = 36 }: SparklineProps) {
   const points = values.filter((v) => v !== null && v !== undefined && !Number.isNaN(v)) as number[];
   if (points.length < 2) return null;
@@ -1033,10 +1037,12 @@ export default function Dashboard() {
                           <div className="alertTitle">{alert?.event ?? "Alert"}</div>
                           <div className="alertMeta">
                             {alert?.severity ? `Severity: ${alert.severity}` : "Severity: —"}
-                            {alert?.effective ? ` • Starts ${new Date(alert.effective).toLocaleString()}` : ""}
+                            {alert?.onset ? ` • Starts ${new Date(alert.onset).toLocaleString()}` : ""}
                             {alert?.ends ? ` • Ends ${new Date(alert.ends).toLocaleString()}` : ""}
                           </div>
-                          {alert?.headline && <div className="alertBody">{alert.headline}</div>}
+                          {alert?.headline && (
+                            <div className="alertBody">{formatAlertHeadline(alert.headline)}</div>
+                          )}
                         </div>
                       ))
                     ) : (

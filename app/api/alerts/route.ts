@@ -43,7 +43,7 @@ export async function GET(request: Request) {
         event: f?.properties?.event ?? null,
         severity: f?.properties?.severity ?? null,
         headline: f?.properties?.headline ?? null,
-        effective: f?.properties?.effective ?? null,
+        onset: f?.properties?.onset ?? null,
         ends: f?.properties?.ends ?? null
       })) ?? [];
 
