@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import WeatherMap from "./WeatherMap";
 import TempDewChart from "./charts/TempDewChart";
+import ElectricUsageChart from "./charts/ElectricUsageChart";
 import PressureChart from "./charts/PressureChart";
 import WindChart from "./charts/WindChart";
 import WindDirectionChart from "./charts/WindDirectionChart";
@@ -15,6 +16,7 @@ import PollenSummary from "./PollenSummary";
 import BurnRestrictionsSummary from "./BurnRestrictionsSummary";
 import AircraftOverhead from "./AircraftOverhead";
 import type { WeatherObs } from "@/lib/data/types";
+import type { ElectricUsageDay } from "@/lib/data/electric-types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
 import { heatIndexF, precipAmountIn, sumPrecipInches, windChillF } from "@/lib/utils/weather";
@@ -94,6 +96,8 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [range, setRange] = useState("today");
   const [rangeLoading, setRangeLoading] = useState(false);
+  const [electricSeries, setElectricSeries] = useState<ElectricUsageDay[]>([]);
+  const [electricError, setElectricError] = useState<string | null>(null);
   const [forecast, setForecast] = useState<{
     daily: any[];
     hourly: any[];
@@ -146,6 +150,13 @@ export default function Dashboard() {
   const [deletePin, setDeletePin] = useState("");
   const [deleteHoneypot, setDeleteHoneypot] = useState("");
 
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const rangeWindow = useMemo(() => getRangeWindow(range), [range]);
+  const showElectricChart = useMemo(
+    () => rangeWindow.to.getTime() - rangeWindow.from.getTime() >= DAY_MS,
+    [rangeWindow]
+  );
+
   useEffect(() => {
     if (!annotationOpen) {
       document.body.classList.remove("modalOpen");
@@ -197,6 +208,41 @@ export default function Dashboard() {
       clearInterval(id);
     };
   }, [range]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadElectricUsage() {
+      if (!showElectricChart) {
+        setElectricSeries([]);
+        setElectricError(null);
+        return;
+      }
+
+      try {
+        setElectricError(null);
+        const fromISO = rangeWindow.from.toISOString();
+        const toISO = rangeWindow.to.toISOString();
+        const res = await fetch(
+          `/api/electric-usage?from=${encodeURIComponent(fromISO)}&to=${encodeURIComponent(toISO)}`,
+          { cache: "no-store" }
+        );
+        if (!res.ok) throw new Error(`electric usage error ${res.status}`);
+        const json = (await res.json()) as ElectricUsageDay[];
+        if (!cancelled) setElectricSeries(Array.isArray(json) ? json : []);
+      } catch (e: any) {
+        if (!cancelled) {
+          setElectricSeries([]);
+          setElectricError(e?.message ?? "Failed to load electric usage");
+        }
+      }
+    }
+
+    loadElectricUsage();
+    return () => {
+      cancelled = true;
+    };
+  }, [range, rangeWindow, showElectricChart]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1321,6 +1367,28 @@ export default function Dashboard() {
               </div>
 
               <div style={{ height: 12 }} />
+
+              {showElectricChart ? (
+                <>
+                  <div className="panel" style={{ borderRadius: 14 }} id="hist-electric">
+                    <div className="panelHeader">
+                      <div>Electric Usage</div>
+                      <div className="muted">
+                        kWh • Demand (kW){electricError ? ` • Error: ${electricError}` : ""}
+                      </div>
+                    </div>
+                    <div className="panelBody">
+                      {electricSeries.length ? (
+                        <ElectricUsageChart data={electricSeries} />
+                      ) : (
+                        <div className="muted">No electric usage data for this range.</div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={{ height: 12 }} />
+                </>
+              ) : null}
 
               <div className="panel" style={{ borderRadius: 14 }} id="hist-temp-dew">
                 <div className="panelHeader">

@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit",
     "check": "npm run lint && npm run typecheck",
     "start": "next start",
-    "ingest:ambient": "node scripts/ingest-ambient.mjs"
+    "ingest:ambient": "node scripts/ingest-ambient.mjs",
+    "ingest:electric": "node scripts/ingest-electric-usage.mjs"
   },
   "dependencies": {
     "dotenv": "^17.2.3",

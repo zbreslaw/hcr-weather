@@ -90,4 +90,10 @@ create index idx_annotations_tags
 on annotations
 using GIN (tags);
 
+create table if not exists electric_usage (
+  usage_date date primary key,
+  kwh double precision,
+  demand_kw double precision
+);
+
 ```
