@@ -17,7 +17,7 @@ import BurnRestrictionsSummary from "./BurnRestrictionsSummary";
 import AircraftOverhead from "./AircraftOverhead";
 import type { WeatherObs } from "@/lib/data/types";
 import type { ElectricUsageDay } from "@/lib/data/electric-types";
-import { fmt, fmtHighLow, fmtHour, fmtInches, fmtTemp } from "@/lib/utils/format";
+import { fmt, fmtHighLow, fmtHour, fmtInches, fmtStat, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
 import { heatIndexF, precipAmountIn, sumPrecipInches, windChillF } from "@/lib/utils/weather";
 
@@ -1211,7 +1211,7 @@ export default function Dashboard() {
                       <div className="kpiMain">
                         <div className="kpiLabel">Ultra-Violet Radiation Index</div>
                         <div className="kpiValue">{fmt(latest?.uv)}</div>
-                        <div className="kpiMeta">Today&apos;s Max {todayRanges.uv.max}</div>
+                        <div className="kpiMeta">Today&apos;s Max {fmtStat(todayRanges.uv.max, 2)}</div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.uv ?? null)} />
                     </div>
