@@ -21,6 +21,7 @@ const EVENT_COLORS: Record<string, string> = {
   Fog: "#cbd5f5",
   Temp: "#f97316",
   Wind: "#7dd3fc",
+  "Fire Danger": "#dc2626",
   "Power outage": "#f87171",
   "Equipment issue": "#fbbf24",
   Other: "#e5e7eb"

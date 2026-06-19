@@ -63,6 +63,7 @@ create type annotation_event_type as enum (
   'Fog',
   'Temp',
   'Wind',
+  'Fire Danger',
   'Power outage',
   'Equipment issue',
   'Other'
@@ -95,5 +96,8 @@ create table if not exists electric_usage (
   kwh double precision,
   demand_kw double precision
 );
+
+-- Existing databases: add new annotation event types with
+-- alter type annotation_event_type add value 'Fire Danger';
 
 ```

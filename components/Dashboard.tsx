@@ -30,6 +30,7 @@ const ANNOTATION_EVENTS = [
   "Fog",
   "Temp",
   "Wind",
+  "Fire Danger",
   "Power outage",
   "Equipment issue",
   "Other"

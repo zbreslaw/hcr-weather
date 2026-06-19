@@ -14,12 +14,14 @@ function enhanceImageUrl(src: string) {
     .replace(/enc_avif/, "enc_auto");
 }
 
+const LEVEL_PATTERN = "(Low|Moderate|High|Extreme)(?:\\.png)?";
+
 export function parseFireDangerHtml(html: string): FireDangerData {
   const ratingMatch = html.match(
-    /<picture>\s*<img[^>]*alt="(Low|Moderate|High|Extreme)"[^>]*src="([^"]+)"[^>]*>/i
+    new RegExp(`<picture>\\s*<img[^>]*alt="${LEVEL_PATTERN}"[^>]*src="([^"]+)"[^>]*>`, "i")
   );
   const ratingMatchAltOrder = html.match(
-    /<picture>\s*<img[^>]*src="([^"]+)"[^>]*alt="(Low|Moderate|High|Extreme)"[^>]*>/i
+    new RegExp(`<picture>\\s*<img[^>]*src="([^"]+)"[^>]*alt="${LEVEL_PATTERN}"[^>]*>`, "i")
   );
 
   let level: string | null = null;
@@ -32,11 +34,17 @@ export function parseFireDangerHtml(html: string): FireDangerData {
     imageUrl = enhanceImageUrl(ratingMatchAltOrder[1]);
     level = ratingMatchAltOrder[2];
   } else {
-    const imgMatch = html.match(/<img[^>]*alt="(Low|Moderate|High|Extreme)"[^>]*>/i);
+    const imgMatch = html.match(new RegExp(`<img[^>]*alt="${LEVEL_PATTERN}"[^>]*>`, "i"));
     if (imgMatch) {
       level = imgMatch[1];
       const srcMatch = imgMatch[0].match(/src="([^"]+)"/i);
       imageUrl = srcMatch ? enhanceImageUrl(srcMatch[1]) : null;
+    } else {
+      const srcLevelMatch = html.match(/src="([^"]*\/(Low|Moderate|High|Extreme)\.png[^"]*)"/i);
+      if (srcLevelMatch) {
+        imageUrl = enhanceImageUrl(srcLevelMatch[1]);
+        level = srcLevelMatch[2];
+      }
     }
   }
 

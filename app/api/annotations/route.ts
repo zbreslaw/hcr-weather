@@ -21,6 +21,7 @@ const EVENT_TYPES = new Set([
   "Fog",
   "Temp",
   "Wind",
+  "Fire Danger",
   "Power outage",
   "Equipment issue",
   "Other"
