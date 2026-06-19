@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceL
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { statsWithExtrema } from "@/lib/utils/math";
 
 export default function UVChart({
   data,
@@ -15,7 +15,11 @@ export default function UVChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const uvStats = stats(data.map((d) => d.uv));
+  const uvStats = statsWithExtrema(
+    data.map((d) => d.uv),
+    undefined,
+    data.map((d) => d.uvMax ?? d.uv)
+  );
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
   const windowTicks =

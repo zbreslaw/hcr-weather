@@ -5,7 +5,7 @@ import { ReferenceDot } from "recharts";
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { statsWithExtrema } from "@/lib/utils/math";
 
 export default function TempDewChart({
   data,
@@ -16,8 +16,16 @@ export default function TempDewChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const tempStats = stats(data.map((d) => d.tempf));
-  const dewStats = stats(data.map((d) => d.dewpointf));
+  const tempStats = statsWithExtrema(
+    data.map((d) => d.tempf),
+    data.map((d) => d.tempfMin ?? d.tempf),
+    data.map((d) => d.tempfMax ?? d.tempf)
+  );
+  const dewStats = statsWithExtrema(
+    data.map((d) => d.dewpointf),
+    data.map((d) => d.dewpointfMin ?? d.dewpointf),
+    data.map((d) => d.dewpointfMax ?? d.dewpointf)
+  );
   const statDecimals = 2;
   const tooltipValue = (value: any) =>
     typeof value === "number" && Number.isFinite(value) ? value.toFixed(2) : value;
@@ -43,12 +51,16 @@ export default function TempDewChart({
     let min: { time: string; value: number } | null = null;
     let max: { time: string; value: number } | null = null;
     for (const entry of data) {
-      const value = entry.tempf;
-      if (value == null || Number.isNaN(value)) continue;
       const time = entry.time;
       if (!time) continue;
-      if (!min || value < min.value) min = { time, value };
-      if (!max || value > max.value) max = { time, value };
+      const minValue = entry.tempfMin ?? entry.tempf;
+      const maxValue = entry.tempfMax ?? entry.tempf;
+      if (minValue != null && !Number.isNaN(minValue) && (!min || minValue < min.value)) {
+        min = { time, value: minValue };
+      }
+      if (maxValue != null && !Number.isNaN(maxValue) && (!max || maxValue > max.value)) {
+        max = { time, value: maxValue };
+      }
     }
     return { min, max };
   })();

@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceL
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { statsWithExtrema } from "@/lib/utils/math";
 
 export default function PressureChart({
   data,
@@ -15,7 +15,11 @@ export default function PressureChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const pressureStats = stats(data.map((d) => d.baromrelin));
+  const pressureStats = statsWithExtrema(
+    data.map((d) => d.baromrelin),
+    data.map((d) => d.baromrelinMin ?? d.baromrelin),
+    data.map((d) => d.baromrelinMax ?? d.baromrelin)
+  );
   const statDecimals = 2;
   const spanMs = timeSpanMs(data);
   const windowTicks =
@@ -30,12 +34,16 @@ export default function PressureChart({
     let min: { time: string; value: number } | null = null;
     let max: { time: string; value: number } | null = null;
     for (const entry of data) {
-      const value = entry.baromrelin;
-      if (value == null || Number.isNaN(value)) continue;
       const time = entry.time;
       if (!time) continue;
-      if (!min || value < min.value) min = { time, value };
-      if (!max || value > max.value) max = { time, value };
+      const minValue = entry.baromrelinMin ?? entry.baromrelin;
+      const maxValue = entry.baromrelinMax ?? entry.baromrelin;
+      if (minValue != null && !Number.isNaN(minValue) && (!min || minValue < min.value)) {
+        min = { time, value: minValue };
+      }
+      if (maxValue != null && !Number.isNaN(maxValue) && (!max || maxValue > max.value)) {
+        max = { time, value: maxValue };
+      }
     }
     return { min, max };
   })();

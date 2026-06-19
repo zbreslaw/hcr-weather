@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceL
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { statsWithExtrema } from "@/lib/utils/math";
 
 export default function HumidityChart({
   data,
@@ -15,7 +15,11 @@ export default function HumidityChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const humidityStats = stats(data.map((d) => d.humidity));
+  const humidityStats = statsWithExtrema(
+    data.map((d) => d.humidity),
+    data.map((d) => d.humidityMin ?? d.humidity),
+    data.map((d) => d.humidityMax ?? d.humidity)
+  );
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
   const windowTicks =
@@ -29,10 +33,10 @@ export default function HumidityChart({
   const humidityMin = (() => {
     let min: { time: string; value: number } | null = null;
     for (const entry of data) {
-      const value = entry.humidity;
-      if (value == null || Number.isNaN(value)) continue;
       const time = entry.time;
       if (!time) continue;
+      const value = entry.humidityMin ?? entry.humidity;
+      if (value == null || Number.isNaN(value)) continue;
       if (!min || value < min.value) min = { time, value };
     }
     return min;

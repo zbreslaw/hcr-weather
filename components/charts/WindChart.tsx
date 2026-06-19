@@ -4,7 +4,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, Refe
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { stats, statsWithExtrema } from "@/lib/utils/math";
 
 export default function WindChart({
   data,
@@ -15,7 +15,11 @@ export default function WindChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const windStats = stats(data.map((d) => d.windspeedmph));
+  const windStats = statsWithExtrema(
+    data.map((d) => d.windspeedmph),
+    data.map((d) => d.windspeedmphMin ?? d.windspeedmph),
+    data.map((d) => d.windspeedmphMax ?? d.windspeedmph)
+  );
   const gustStats = stats(data.map((d) => d.windgustmph));
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);

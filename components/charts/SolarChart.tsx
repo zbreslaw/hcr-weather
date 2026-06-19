@@ -4,7 +4,7 @@ import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip, ReferenceL
 import type { WeatherObs } from "@/lib/data/types";
 import { fmtDay, fmtStat, fmtTime } from "@/lib/utils/format";
 import { dailyTicksAtHour, ticksForTimeWindow, timeSpanMs } from "@/lib/utils/dates";
-import { stats } from "@/lib/utils/math";
+import { statsWithExtrema } from "@/lib/utils/math";
 import { totalWhPerM2 } from "@/lib/utils/weather";
 
 export default function SolarChart({
@@ -16,7 +16,11 @@ export default function SolarChart({
   highlightTime?: string | null;
   rangeWindow?: { from: Date; to: Date } | null;
 }) {
-  const solarStats = stats(data.map((d) => d.solarradiation));
+  const solarStats = statsWithExtrema(
+    data.map((d) => d.solarradiation),
+    undefined,
+    data.map((d) => d.solarradiationMax ?? d.solarradiation)
+  );
   const solarTotal = totalWhPerM2(data);
   const statDecimals = 1;
   const spanMs = timeSpanMs(data);
@@ -31,10 +35,10 @@ export default function SolarChart({
   const solarMax = (() => {
     let max: { time: string; value: number } | null = null;
     for (const entry of data) {
-      const value = entry.solarradiation;
-      if (value == null || Number.isNaN(value)) continue;
       const time = entry.time;
       if (!time) continue;
+      const value = entry.solarradiationMax ?? entry.solarradiation;
+      if (value == null || Number.isNaN(value)) continue;
       if (!max || value > max.value) max = { time, value };
     }
     return max;

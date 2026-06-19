@@ -46,10 +46,20 @@ export class PostgresProvider implements WeatherProvider {
       select
         bucket as time,
         tempf_avg as tempf,
+        tempf_min,
+        tempf_max,
         dewpointf_avg as dewpointf,
+        dewpointf_min,
+        dewpointf_max,
         humidity_avg as humidity,
+        humidity_min,
+        humidity_max,
         baromrelin_avg as baromrelin,
+        baromrelin_min,
+        baromrelin_max,
         windspeedmph_avg as windspeedmph,
+        windspeedmph_min,
+        windspeedmph_max,
         windgustmph_max as windgustmph,
         case
           when winddir_sin_avg is null or winddir_cos_avg is null then null
@@ -60,7 +70,9 @@ export class PostgresProvider implements WeatherProvider {
         end as winddir,
         dailyrainin_max as dailyrainin,
         solarradiation_avg as solarradiation,
-        uv_avg as uv
+        solarradiation_max,
+        uv_avg as uv,
+        uv_max
       from ${table}
       where bucket >= $1 and bucket <= $2
       order by bucket asc
@@ -81,14 +93,26 @@ function rowToObs(r: any): WeatherObs {
   return {
     time: new Date(r.time).toISOString(),
     tempf: r.tempf,
+    tempfMin: r.tempf_min ?? null,
+    tempfMax: r.tempf_max ?? null,
     dewpointf: r.dewpointf,
+    dewpointfMin: r.dewpointf_min ?? null,
+    dewpointfMax: r.dewpointf_max ?? null,
     humidity: r.humidity,
+    humidityMin: r.humidity_min ?? null,
+    humidityMax: r.humidity_max ?? null,
     baromrelin: r.baromrelin,
+    baromrelinMin: r.baromrelin_min ?? null,
+    baromrelinMax: r.baromrelin_max ?? null,
     windspeedmph: r.windspeedmph,
+    windspeedmphMin: r.windspeedmph_min ?? null,
+    windspeedmphMax: r.windspeedmph_max ?? null,
     windgustmph: r.windgustmph,
     winddir: r.winddir,
     dailyrainin: r.dailyrainin,
     solarradiation: r.solarradiation,
-    uv: r.uv
+    solarradiationMax: r.solarradiation_max ?? null,
+    uv: r.uv,
+    uvMax: r.uv_max ?? null
   };
 }
