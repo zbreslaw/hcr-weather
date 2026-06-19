@@ -577,7 +577,7 @@ export default function Dashboard() {
     () => series.filter((d) => new Date(d.time).toDateString() === todayKeyLocal),
     [series, todayKeyLocal]
   );
-  const rainyStreak = useMemo(() => {
+  const rainDayStats = useMemo(() => {
     if (!rainTotalsSeries.length) return null;
     const maxByDay = new Map<string, number>();
     for (const entry of rainTotalsSeries) {
@@ -601,7 +601,21 @@ export default function Dashboard() {
       }
     }
 
-    return streak;
+    if (streak > 0) return { streak, daysSinceRain: null as number | null };
+
+    let daysSinceRain = 0;
+    for (let i = 0; i < 366; i += 1) {
+      const day = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() - i);
+      const key = day.toDateString();
+      const max = maxByDay.get(key) ?? 0;
+      if (max < 0.01) {
+        daysSinceRain += 1;
+      } else {
+        break;
+      }
+    }
+
+    return { streak: 0, daysSinceRain };
   }, [rainTotalsSeries, latest?.time]);
   const todaySolarTotal = useMemo(() => {
     const points = todaySeries
@@ -1122,7 +1136,11 @@ export default function Dashboard() {
                         <div className="kpiValue">{fmtInches(todayRanges.rain.max)}</div>
                         <div className="kpiMeta">Forecast {fmtInches(todayForecast?.precipIn ?? null)}</div>
                         <div className="kpiMeta">
-                          Rainy Day Streak: {rainyStreak == null ? "—" : `${rainyStreak} ${rainyStreak === 1 ? "day" : "days"}`}
+                          {rainDayStats == null
+                            ? "—"
+                            : rainDayStats.streak > 0
+                              ? `Rainy Day Streak: ${rainDayStats.streak} ${rainDayStats.streak === 1 ? "day" : "days"}`
+                              : `Days Since Rain: ${rainDayStats.daysSinceRain} ${rainDayStats.daysSinceRain === 1 ? "day" : "days"}`}
                         </div>
                       </div>
                       <Sparkline values={todaySeries.map((d) => d.dailyrainin ?? null)} />
