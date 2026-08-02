@@ -572,9 +572,12 @@ export default function Dashboard() {
 
     return groups;
   }, [forecast]);
-  const todayKeyLocal = useMemo(() => new Date().toDateString(), []);
+  const [todayKeyLocal, setTodayKeyLocal] = useState<string | null>(null);
+  useEffect(() => {
+    setTodayKeyLocal(new Date().toDateString());
+  }, []);
   const todaySeries = useMemo(
-    () => series.filter((d) => new Date(d.time).toDateString() === todayKeyLocal),
+    () => (todayKeyLocal ? series.filter((d) => new Date(d.time).toDateString() === todayKeyLocal) : []),
     [series, todayKeyLocal]
   );
   const rainDayStats = useMemo(() => {

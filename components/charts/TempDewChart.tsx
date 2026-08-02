@@ -41,7 +41,14 @@ export default function TempDewChart({
   const tickFormatter = useDailyTicks ? fmtDay : fmtTime;
 
   const values = data
-    .flatMap((d) => [d.tempf, d.dewpointf])
+    .flatMap((d) => [
+      d.tempf,
+      d.tempfMin,
+      d.tempfMax,
+      d.dewpointf,
+      d.dewpointfMin,
+      d.dewpointfMax
+    ])
     .filter((v): v is number => typeof v === "number" && !Number.isNaN(v));
   const yDomain: [number | "auto", number | "auto"] = values.length
     ? [Math.min(...values), Math.max(...values)]
