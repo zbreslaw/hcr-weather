@@ -12,7 +12,7 @@ type PollenType = {
 };
 
 function valueLabel(type: PollenType) {
-  if (type.value == null) return type.inSeason === false ? "Out of season" : "—";
+  if (type.value == null) return type.inSeason === false ? "Out of season" : "No data";
   if (type.value === 0) return "None";
   return `${type.value}`;
 }
@@ -20,6 +20,7 @@ function valueLabel(type: PollenType) {
 function categoryLabel(type: PollenType) {
   if (type.category) return type.category;
   if (type.value === 0) return "None";
+  if (type.value == null) return type.inSeason === false ? "Out of season" : "No data";
   return " ";
 }
 

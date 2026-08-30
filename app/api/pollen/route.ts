@@ -36,13 +36,27 @@ function rgbFromApiColor(color?: { red?: number; green?: number; blue?: number }
   return `rgb(${r}, ${g}, ${b})`;
 }
 
+/** Proto3 JSON omits default scalars: false and 0. Google also omits indexInfo when a type has no data. */
+function parseIndexValue(indexInfo: { value?: number } | null | undefined): number | null {
+  if (!indexInfo) return null;
+  if (typeof indexInfo.value === "number" && Number.isFinite(indexInfo.value)) return indexInfo.value;
+  return 0;
+}
+
+function parseInSeason(entry: { inSeason?: boolean; indexInfo?: unknown } | null | undefined): boolean | null {
+  if (!entry) return null;
+  if (typeof entry.inSeason === "boolean") return entry.inSeason;
+  return entry.indexInfo ? false : null;
+}
+
 async function fetchPollenFromGoogle(lat: string, lon: string, apiKey: string): Promise<PollenPayload> {
   const url = new URL("https://pollen.googleapis.com/v1/forecast:lookup");
   url.searchParams.set("key", apiKey);
   url.searchParams.set("location.latitude", lat);
   url.searchParams.set("location.longitude", lon);
   url.searchParams.set("days", "1");
-  url.searchParams.set("plantsDescription", "0");
+  url.searchParams.set("plantsDescription", "false");
+  url.searchParams.set("languageCode", "en");
 
   const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
@@ -54,17 +68,22 @@ async function fetchPollenFromGoogle(lat: string, lon: string, apiKey: string): 
   const forecastDay = json?.dailyInfo?.[0] ?? null;
   const byCode = new Map<string, any>();
   for (const entry of forecastDay?.pollenTypeInfo ?? []) {
-    if (entry?.code) byCode.set(String(entry.code), entry);
+    if (entry?.code) byCode.set(String(entry.code).toUpperCase(), entry);
   }
+
+  const graminales = (forecastDay?.plantInfo ?? []).find(
+    (plant: { code?: string }) => String(plant?.code ?? "").toUpperCase() === "GRAMINALES"
+  );
 
   const types = TYPE_ORDER.map((code) => {
     const entry = byCode.get(code);
-    const indexInfo = entry?.indexInfo ?? null;
+    const source = code === "GRASS" && !entry?.indexInfo && graminales?.indexInfo ? graminales : entry;
+    const indexInfo = source?.indexInfo ?? null;
     return {
       code,
       displayName: entry?.displayName ?? code.charAt(0) + code.slice(1).toLowerCase(),
-      inSeason: entry?.inSeason ?? null,
-      value: indexInfo?.value ?? null,
+      inSeason: parseInSeason(source ?? entry),
+      value: parseIndexValue(indexInfo),
       category: indexInfo?.category ?? null,
       color: rgbFromApiColor(indexInfo?.color)
     };
