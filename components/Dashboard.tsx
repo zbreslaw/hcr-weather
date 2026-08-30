@@ -1,7 +1,7 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import WeatherMap from "./WeatherMap";
 import TempDewChart from "./charts/TempDewChart";
 import ElectricUsageChart from "./charts/ElectricUsageChart";
 import PressureChart from "./charts/PressureChart";
@@ -20,6 +20,8 @@ import type { ElectricUsageDay } from "@/lib/data/electric-types";
 import { fmt, fmtHighLow, fmtHour, fmtInches, fmtStat, fmtTemp } from "@/lib/utils/format";
 import { dateKeyInTimeZone, getRangeWindow } from "@/lib/utils/dates";
 import { heatIndexF, precipAmountIn, sumPrecipInches, windChillF } from "@/lib/utils/weather";
+
+const WeatherMap = dynamic(() => import("./WeatherMap"), { ssr: false });
 
 const ANNOTATION_EVENTS = [
   "Snow",

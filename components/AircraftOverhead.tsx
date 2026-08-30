@@ -21,8 +21,19 @@ type AircraftPayload = {
   aircraft: AircraftEntry[];
   updatedAt: string;
   radiusNm: number;
+  source?: {
+    name: string;
+    homeUrl: string;
+    globeBase: string;
+  };
   stale?: boolean;
   warning?: string;
+};
+
+const DEFAULT_SOURCE = {
+  name: "adsb.fi",
+  homeUrl: "https://adsb.fi",
+  globeBase: "https://globe.adsb.fi/?icao="
 };
 
 function formatUpdatedAt(iso: string | null) {
@@ -46,8 +57,8 @@ function formatHeading(deg: number | null) {
   return `${Math.round(deg)}°`;
 }
 
-function globeUrlForHex(hex: string) {
-  return `https://globe.airplanes.live/?icao=${encodeURIComponent(hex.toLowerCase())}`;
+function globeUrlForHex(hex: string, globeBase: string) {
+  return `${globeBase}${encodeURIComponent(hex.toLowerCase())}`;
 }
 
 export default function AircraftOverhead() {
@@ -92,6 +103,7 @@ export default function AircraftOverhead() {
 
   const updatedLabel = formatUpdatedAt(data?.updatedAt ?? null);
   const showEmpty = !loading && !error && data?.count === 0;
+  const source = data?.source ?? DEFAULT_SOURCE;
 
   return (
     <div className="panel">
@@ -120,7 +132,7 @@ export default function AircraftOverhead() {
               <div className="aircraftOverheadItem" key={ac.hex}>
                 <div className="aircraftOverheadCallsign">
                   <a
-                    href={globeUrlForHex(ac.hex)}
+                    href={globeUrlForHex(ac.hex, source.globeBase)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="aircraftOverheadCallsignLink"
@@ -144,8 +156,8 @@ export default function AircraftOverhead() {
 
         <div className="aircraftOverheadFooter">
           Data from{" "}
-          <a href="https://airplanes.live" target="_blank" rel="noopener noreferrer" className="aircraftOverheadLink">
-            airplanes.live
+          <a href={source.homeUrl} target="_blank" rel="noopener noreferrer" className="aircraftOverheadLink">
+            {source.name}
           </a>{" "}
           (non-commercial use)
         </div>

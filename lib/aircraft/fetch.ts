@@ -1,8 +1,8 @@
 import { decodeCallsign } from "@/lib/data/airline-prefixes";
 import { formatBearing, haversineDistanceNm, initialBearingDeg } from "@/lib/utils/geo";
-import type { AircraftEntry } from "./config";
+import { AIRCRAFT_PROVIDERS, type AircraftEntry, type AircraftProviderId } from "./config";
 
-/** Raw aircraft object from airplanes.live `ac` array (verified 2026-05). */
+/** Raw aircraft object from airplanes.live / adsb.fi `ac` arrays. */
 type RawAircraft = {
   hex?: string;
   flight?: string;
@@ -16,6 +16,7 @@ type RawAircraft = {
 
 type RawResponse = {
   ac?: RawAircraft[];
+  aircraft?: RawAircraft[];
 };
 
 function parseAltitude(altBaro: number | string | undefined) {
@@ -54,7 +55,7 @@ export function parseAircraftResponse(
   stationLon: number,
   listLimit: number
 ): { count: number; aircraft: AircraftEntry[] } {
-  const rawList = Array.isArray(json?.ac) ? json.ac : [];
+  const rawList = Array.isArray(json?.ac) ? json.ac : Array.isArray(json?.aircraft) ? json.aircraft : [];
   const entries: AircraftEntry[] = [];
 
   for (const raw of rawList) {
@@ -97,22 +98,28 @@ export async function fetchAircraftFromUpstream(
   lat: number,
   lon: number,
   radiusNm: number,
-  timeoutMs: number
+  timeoutMs: number,
+  providerId: AircraftProviderId,
+  userAgent: string
 ): Promise<unknown> {
-  const url = `https://api.airplanes.live/v2/point/${lat}/${lon}/${radiusNm}`;
+  const provider = AIRCRAFT_PROVIDERS[providerId];
+  const url = provider.pointUrl(lat, lon, radiusNm);
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, {
       signal: controller.signal,
-      headers: { Accept: "application/json" },
+      headers: {
+        Accept: "application/json",
+        "User-Agent": userAgent
+      },
       cache: "no-store"
     });
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
-      throw new Error(`airplanes.live ${res.status}${body ? `: ${body.slice(0, 120)}` : ""}`);
+      throw new Error(`${provider.name} ${res.status}${body ? `: ${body.slice(0, 120)}` : ""}`);
     }
 
     return res.json();

@@ -1,22 +1,19 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useMapEvents } from "react-leaflet";
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  Polyline,
+  Popup,
+  TileLayer,
+  Tooltip,
+  useMapEvents
+} from "react-leaflet";
+import type { DivIcon, LatLngExpression } from "leaflet";
 import type { WeatherObs } from "@/lib/data/types";
 import Overlays from "./Overlays";
-
-import type { DivIcon, LatLngExpression } from "leaflet";
-
-import type { MapContainerProps } from "react-leaflet";
-
-const MapContainer = dynamic(() => import("react-leaflet").then((m) => m.MapContainer), { ssr: false }) as React.FC<MapContainerProps>;
-const TileLayer = dynamic(() => import("react-leaflet").then((m) => m.TileLayer), { ssr: false });
-const Polyline = dynamic(() => import("react-leaflet").then((m) => m.Polyline), { ssr: false });
-const CircleMarker = dynamic(() => import("react-leaflet").then((m) => m.CircleMarker), { ssr: false });
-const Popup = dynamic(() => import("react-leaflet").then((m) => m.Popup), { ssr: false });
-const Marker = dynamic(() => import("react-leaflet").then((m) => m.Marker), { ssr: false });
-const Tooltip = dynamic(() => import("react-leaflet").then((m) => m.Tooltip), { ssr: false });
 
 type Props = {
   latest: WeatherObs | null;
